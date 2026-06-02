@@ -19,7 +19,6 @@ const shippingPrices = {
   express: 12
 };
 
-const colorCountSelect = document.getElementById('color-count-select');
 const colorPickers = document.getElementById('color-pickers');
 const navToggle = document.getElementById('nav-toggle');
 const navLinks = document.getElementById('nav-links');
@@ -34,13 +33,27 @@ const summaryColors = document.getElementById('summary-colors');
 const summaryProductPrice = document.getElementById('summary-product-price');
 const summaryShipping = document.getElementById('summary-shipping');
 const summaryTotal = document.getElementById('summary-total');
+const productSelect = customForm ? customForm.querySelector('select[name="product"]') : null;
 
-function createColorSelect(index) {
+function getProductColorLabels(product) {
+  switch (product) {
+    case 'Beanie':
+      return ['Main Color'];
+    case 'Scrunchie':
+      return ['Primary Color', 'Accent Color'];
+    case 'Ruffle Bucket Hat':
+      return ['Main Color', 'Outer Color', 'Top Color'];
+    default:
+      return ['Main Color'];
+  }
+}
+
+function createColorSelect(index, labelText = null) {
   const wrapper = document.createElement('label');
   wrapper.className = 'color-select-group';
 
   const title = document.createElement('span');
-  title.textContent = `Color ${index + 1}`;
+  title.textContent = labelText || `Color ${index + 1}`;
 
   const select = document.createElement('select');
   select.className = 'color-select';
@@ -104,35 +117,23 @@ function updateDisabledOptions() {
 }
 
 function updateColorPickers() {
-  if (!colorCountSelect || !colorPickers) return;
+  if (!colorPickers || !productSelect) return;
 
-  const count = parseInt(colorCountSelect.value, 10) || 0;
+  const product = getSelectedProduct();
+  const colorLabels = getProductColorLabels(product);
   const currentPickers = Array.from(colorPickers.querySelectorAll('.color-select-group'));
   const values = currentPickers.map(group => group.querySelector('.color-select').value);
 
-  const desiredPickers = [];
-  desiredPickers.push(createColorSelect(0));
-
-  if (count >= 2 && values[0]) {
-    desiredPickers.push(createColorSelect(1));
-  }
-
-  if (count >= 3 && values[1]) {
-    desiredPickers.push(createColorSelect(2));
-  }
-
   colorPickers.innerHTML = '';
-  desiredPickers.forEach((picker, index) => {
+
+  colorLabels.forEach((label, index) => {
+    const picker = createColorSelect(index, label);
     const select = picker.querySelector('.color-select');
     if (values[index]) {
       select.value = values[index];
     }
     colorPickers.appendChild(picker);
   });
-
-  if (colorPickers.children.length === 0) {
-    colorPickers.appendChild(createColorSelect(0));
-  }
 
   updateDisabledOptions();
 }
@@ -272,12 +273,12 @@ if (goCheckoutButton) {
   });
 }
 
-if (checkoutForm) {
-  checkoutForm.addEventListener('submit', handleFormSubmit);
+if (productSelect) {
+  productSelect.addEventListener('change', updateColorPickers);
 }
 
-if (colorCountSelect) {
-  colorCountSelect.addEventListener('change', updateColorPickers);
+if (checkoutForm) {
+  checkoutForm.addEventListener('submit', handleFormSubmit);
 }
 
 if (colorPickers) {
