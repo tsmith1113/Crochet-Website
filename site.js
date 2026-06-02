@@ -213,6 +213,7 @@ function serializeCustomOrder() {
   const selectedColors = getSelectedColors();
   const notes = customForm.querySelector('textarea[name="notes"]').value.trim();
   const allOneColor = allOneColorCheckbox && allOneColorCheckbox.checked;
+  const bucketHatStyle = bucketHatStyleSelect ? bucketHatStyleSelect.value : '';
 
   if (!product || !selectedColors.length) return null;
 
@@ -226,7 +227,8 @@ function serializeCustomOrder() {
     product,
     colors,
     notes,
-    allOneColor: Boolean(allOneColor)
+    allOneColor: Boolean(allOneColor),
+    bucketHatStyle
   };
 }
 
@@ -250,23 +252,29 @@ function loadOrder() {
   return loadCustomOrder();
 }
 
-function getProductPrice(product, colorCount) {
+function getProductPrice(product, colorCount, allOneColor = false, bucketHatStyle = '') {
   const base = basePrices[product] || 0;
-  const thirdColorSurcharge = product === 'Ruffle Bucket Hat' && colorCount === 3 ? 2 : 0;
+  const thirdColorSurcharge = product === 'Ruffle Bucket Hat' && colorCount === 3 && bucketHatStyle === 'main-outer-top' && !allOneColor ? 2 : 0;
   return base + thirdColorSurcharge;
 }
 
-function shouldShowThirdColorNote() {
-  if (!extraColorNote || !bucketHatStyleSelect) return false;
+function getExtraColorNoteText() {
+  if (!extraColorNote || !bucketHatStyleSelect) return '';
   const product = getSelectedProduct();
-  if (product !== 'Ruffle Bucket Hat' || bucketHatStyleSelect.value !== 'main-outer-top') return false;
+  if (product !== 'Ruffle Bucket Hat' || bucketHatStyleSelect.value !== 'main-outer-top') return '';
+  const allOneColor = allOneColorCheckbox && allOneColorCheckbox.checked;
   const selects = Array.from(colorPickers.querySelectorAll('.color-select'));
-  return Boolean(selects[2] && selects[2].value);
+  if (!allOneColor && selects[2] && selects[2].value) {
+    return 'Third color adds $2.';
+  }
+  return '';
 }
 
 function updateThirdColorNote() {
   if (!extraColorNote) return;
-  if (shouldShowThirdColorNote()) {
+  const noteText = getExtraColorNoteText();
+  if (noteText) {
+    extraColorNote.textContent = noteText;
     extraColorNote.style.display = 'block';
   } else {
     extraColorNote.style.display = 'none';
@@ -291,7 +299,7 @@ function updateCheckoutSummary() {
   }
 
   const colorCount = order.colors.length;
-  const subtotal = getProductPrice(order.product, colorCount);
+  const subtotal = getProductPrice(order.product, colorCount, order.allOneColor, order.bucketHatStyle);
   const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
   const shippingCost = getShippingPrice(shippingKey);
   const total = subtotal + shippingCost;
@@ -300,9 +308,10 @@ function updateCheckoutSummary() {
   const colorText = order.allOneColor && order.colors.length
     ? `All one color: ${order.colors[0]}`
     : `${order.colors.join(', ')}`;
-  summaryColors.textContent = order.product === 'Ruffle Bucket Hat' && order.colors.length === 3
-    ? `${colorText} (+$2)`
-    : colorText;
+  const surchargeLabel = order.product === 'Ruffle Bucket Hat' && order.colors.length === 3 && order.bucketHatStyle === 'main-outer-top' && !order.allOneColor
+    ? ' (+$2)'
+    : '';
+  summaryColors.textContent = `${colorText}${surchargeLabel}`;
   summaryProductPrice.textContent = `$${subtotal}`;
   summaryShipping.textContent = `$${shippingCost}`;
   summaryTotal.textContent = `$${total}`;
@@ -384,6 +393,7 @@ if (allOneColorCheckbox) {
   allOneColorCheckbox.addEventListener('change', () => {
     updateAllOneColorState();
     updateDisabledOptions();
+    updateThirdColorNote();
   });
 }
 
