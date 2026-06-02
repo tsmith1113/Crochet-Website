@@ -312,6 +312,14 @@ function getShippingPrice(value) {
   return shippingPrices[value] || 0;
 }
 
+function removeOrderItem(index) {
+  const items = loadOrderItems();
+  if (index < 0 || index >= items.length) return false;
+  items.splice(index, 1);
+  saveOrderItems(items);
+  return true;
+}
+
 function renderCartList() {
   if (!orderCartList || !orderCartMessage) return;
   const items = loadOrderItems();
@@ -329,10 +337,15 @@ function renderCartList() {
     const itemPrice = getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
     return `
       <div class="cart-list-item">
-        <strong>${index + 1}. ${item.product}</strong>
-        <p>${colorLabel}</p>
-        <p>${item.notes ? item.notes : ''}</p>
-        <span>$${itemPrice}</span>
+        <div>
+          <strong>${index + 1}. ${item.product}</strong>
+          <p>${colorLabel}</p>
+          <p>${item.notes ? item.notes : ''}</p>
+        </div>
+        <div class="cart-list-actions">
+          <span>$${itemPrice}</span>
+          <button type="button" class="delete-order-item" data-index="${index}">Delete</button>
+        </div>
       </div>
     `;
   }).join('');
@@ -392,7 +405,10 @@ function updateCheckoutSummary() {
             <p class="item-title">${index + 1}. ${order.product}</p>
             <p class="item-meta">${colorText}</p>
           </div>
-          <strong>$${price}</strong>
+          <div class="cart-list-actions">
+            <strong>$${price}</strong>
+            <button type="button" class="delete-order-item" data-index="${index}">Delete</button>
+          </div>
         </div>
       `;
     }).join('');
@@ -496,6 +512,26 @@ if (allOneColorCheckbox) {
     updateDisabledOptions();
     updateThirdColorNote();
   });
+}
+
+function handleDeleteClick(event) {
+  const button = event.target.closest('.delete-order-item');
+  if (!button) return;
+  const index = Number(button.dataset.index);
+  if (Number.isNaN(index)) return;
+  if (removeOrderItem(index)) {
+    renderCartList();
+    updateCheckoutSummary();
+    if (customMessage) customMessage.textContent = 'Item removed from your order.';
+  }
+}
+
+if (orderCartList) {
+  orderCartList.addEventListener('click', handleDeleteClick);
+}
+
+if (checkoutItemList) {
+  checkoutItemList.addEventListener('click', handleDeleteClick);
 }
 
 if (checkoutForm) {
