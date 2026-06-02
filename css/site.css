@@ -401,6 +401,20 @@ section h2 {
   color: var(--text);
 }
 
+.all-one-color-control label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.all-one-color-control input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
 .custom-form button {
   width: max-content;
   padding: 0.95rem 1.8rem;

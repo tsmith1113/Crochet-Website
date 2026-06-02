@@ -168,6 +168,9 @@ function updateColorPickers() {
 
   if (allOneColorControl) {
     if (supportsAllOneColor(product)) {
+      if (colorPickers.firstElementChild) {
+        colorPickers.insertBefore(allOneColorControl, colorPickers.children[1] || null);
+      }
       allOneColorControl.style.display = 'block';
     } else {
       allOneColorControl.style.display = 'none';
