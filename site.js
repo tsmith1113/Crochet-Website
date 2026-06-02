@@ -48,11 +48,8 @@ function getProductColorLabels(product) {
       return ['Primary Color', 'Accent Color'];
     case 'Ruffle Bucket Hat':
       if (bucketHatStyleSelect) {
-        if (bucketHatStyleSelect.value === 'main-top') {
-          return ['Main Color', 'Top Color'];
-        }
-        if (bucketHatStyleSelect.value === 'main-outer') {
-          return ['Main Color', 'Outer Color'];
+        if (bucketHatStyleSelect.value === 'main-rest') {
+          return ['Main Color', 'Rest of Hat'];
         }
       }
       return ['Main Color', 'Outer Color', 'Top Color'];
@@ -183,7 +180,7 @@ function updateColorPickers() {
     } else {
       bucketHatStyleControl.style.display = 'none';
       if (bucketHatStyleSelect) {
-        bucketHatStyleSelect.value = 'main-top';
+        bucketHatStyleSelect.value = 'main-rest';
       }
     }
   }
