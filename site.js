@@ -169,6 +169,10 @@ function loadCustomOrder() {
   }
 }
 
+function loadOrder() {
+  return loadCustomOrder();
+}
+
 function getProductPrice(product, colorCount) {
   const base = basePrices[product] || 0;
   return base + Math.max(0, colorCount - 1) * extraColorPrice;
@@ -179,7 +183,7 @@ function getShippingPrice(value) {
 }
 
 function updateCheckoutSummary() {
-  const order = loadCustomOrder();
+  const order = loadOrder();
   if (!summaryProduct || !summaryColors || !summaryProductPrice || !summaryShipping || !summaryTotal) return;
 
   if (!order) {
@@ -193,7 +197,7 @@ function updateCheckoutSummary() {
 
   const colorCount = order.colors.length;
   const subtotal = getProductPrice(order.product, colorCount);
-  const shippingKey = shippingSelect ? shippingSelect.value : 'standard';
+  const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
   const shippingCost = getShippingPrice(shippingKey);
   const total = subtotal + shippingCost;
 
@@ -261,7 +265,8 @@ if (customForm) {
 
 if (goCheckoutButton) {
   goCheckoutButton.addEventListener('click', () => {
-    if (validateCustomOrder() && storeCustomOrder()) {
+    if (!validateCustomOrder()) return;
+    if (storeCustomOrder()) {
       window.location.href = 'checkout.html';
     }
   });
