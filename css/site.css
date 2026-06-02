@@ -407,6 +407,54 @@ section h2 {
   margin-top: 0.5rem;
 }
 
+.order-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.order-actions button {
+  min-width: 160px;
+}
+
+.cart-status {
+  margin-top: 1rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.order-cart-list,
+.checkout-item-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.cart-list-item,
+.checkout-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: #faf6f2;
+  border: 1px solid rgba(140, 111, 95, 0.18);
+  border-radius: 18px;
+}
+
+.checkout-item-row .item-title,
+.cart-list-item strong {
+  margin: 0 0 0.25rem;
+}
+
+.checkout-item-row .item-meta,
+.cart-list-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .all-one-color-control label {
   display: inline-flex;
   align-items: center;

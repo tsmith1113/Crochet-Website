@@ -102,8 +102,13 @@
                 </div>
                 <p id="extra-color-note" class="color-note" style="display:none;">Third color adds $2.</p>
                 <textarea name="notes" placeholder="Tell me your color choices and details"></textarea>
-                <button type="button" id="go-checkout-button">Go to Checkout</button>
+                <div class="order-actions">
+                    <button type="button" id="add-to-order-button">Add to Order</button>
+                    <button type="button" id="go-checkout-button">Go to Checkout</button>
+                </div>
                 <div class="form-message" id="custom-form-message" aria-live="polite"></div>
+                <div class="cart-status" id="order-cart-message">No items in your order yet.</div>
+                <div id="order-cart-list" class="order-cart-list"></div>
             </form>
         </section>
 

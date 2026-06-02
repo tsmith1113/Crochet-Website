@@ -33,12 +33,18 @@ const summaryColors = document.getElementById('summary-colors');
 const summaryProductPrice = document.getElementById('summary-product-price');
 const summaryShipping = document.getElementById('summary-shipping');
 const summaryTotal = document.getElementById('summary-total');
+const checkoutItemList = document.getElementById('checkout-item-list');
+const singleSummaryItem = document.getElementById('single-summary-item');
 const productSelect = customForm ? customForm.querySelector('select[name="product"]') : null;
 const bucketHatStyleControl = document.getElementById('bucket-hat-style-control');
 const bucketHatStyleSelect = document.getElementById('bucket-hat-color-style');
 const allOneColorControl = document.getElementById('all-one-color-control');
 const allOneColorCheckbox = document.getElementById('all-one-color-checkbox');
 const extraColorNote = document.getElementById('extra-color-note');
+const addToOrderButton = document.getElementById('add-to-order-button');
+const orderCartMessage = document.getElementById('order-cart-message');
+const orderCartList = document.getElementById('order-cart-list');
+const orderItemsKey = 'stitchedByTraeOrderItems';
 
 function getProductColorLabels(product) {
   switch (product) {
@@ -229,6 +235,28 @@ function serializeCustomOrder() {
   };
 }
 
+function loadOrderItems() {
+  try {
+    const stored = window.localStorage.getItem(orderItemsKey);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveOrderItems(items) {
+  window.localStorage.setItem(orderItemsKey, JSON.stringify(items));
+}
+
+function addCurrentOrderItem() {
+  const order = serializeCustomOrder();
+  if (!order) return false;
+  const items = loadOrderItems();
+  items.push(order);
+  saveOrderItems(items);
+  return true;
+}
+
 function storeCustomOrder() {
   const order = serializeCustomOrder();
   if (!order) return false;
@@ -282,34 +310,90 @@ function getShippingPrice(value) {
   return shippingPrices[value] || 0;
 }
 
-function updateCheckoutSummary() {
-  const order = loadOrder();
-  if (!summaryProduct || !summaryColors || !summaryProductPrice || !summaryShipping || !summaryTotal) return;
+function renderCartList() {
+  if (!orderCartList || !orderCartMessage) return;
+  const items = loadOrderItems();
+  if (!items.length) {
+    orderCartMessage.textContent = 'No items in your order yet.';
+    orderCartList.innerHTML = '';
+    return;
+  }
 
-  if (!order) {
+  orderCartMessage.textContent = `You have ${items.length} item${items.length === 1 ? '' : 's'} in your order.`;
+  orderCartList.innerHTML = items.map((item, index) => {
+    const colorLabel = item.allOneColor && item.colors.length
+      ? `All one color: ${item.colors[0]}`
+      : item.colors.join(', ');
+    const itemPrice = getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
+    return `
+      <div class="cart-list-item">
+        <strong>${index + 1}. ${item.product}</strong>
+        <p>${colorLabel}</p>
+        <p>${item.notes ? item.notes : ''}</p>
+        <span>$${itemPrice}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateCheckoutSummary() {
+  const items = loadOrderItems();
+  if (!summaryProduct || !summaryColors || !summaryProductPrice || !summaryShipping || !summaryTotal || !checkoutItemList || !singleSummaryItem) return;
+
+  if (!items.length) {
+    singleSummaryItem.style.display = 'flex';
+    checkoutItemList.style.display = 'none';
     summaryProduct.textContent = 'No product selected';
-    summaryColors.textContent = 'Choose a product and colors on the home page.';
+    summaryColors.textContent = 'Select a product and colors to see the price.';
     summaryProductPrice.textContent = '$0';
     summaryShipping.textContent = '$0';
     summaryTotal.textContent = '$0';
     return;
   }
 
-  const colorCount = order.colors.length;
-  const subtotal = getProductPrice(order.product, colorCount, order.allOneColor, order.bucketHatStyle);
   const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
   const shippingCost = getShippingPrice(shippingKey);
+  const subtotal = items.reduce((sum, item) => {
+    return sum + getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
+  }, 0);
   const total = subtotal + shippingCost;
 
-  summaryProduct.textContent = `${order.product}`;
-  const colorText = order.allOneColor && order.colors.length
-    ? `All one color: ${order.colors[0]}`
-    : `${order.colors.join(', ')}`;
-  const surchargeLabel = order.product === 'Ruffle Bucket Hat' && order.colors.length === 3 && order.bucketHatStyle === 'main-outer-top' && !order.allOneColor
-    ? ' (+$2)'
-    : '';
-  summaryColors.textContent = `${colorText}${surchargeLabel}`;
-  summaryProductPrice.textContent = `$${subtotal}`;
+  if (items.length === 1) {
+    checkoutItemList.style.display = 'none';
+    singleSummaryItem.style.display = 'flex';
+    const order = items[0];
+    summaryProduct.textContent = `${order.product}`;
+    const colorText = order.allOneColor && order.colors.length
+      ? `All one color: ${order.colors[0]}`
+      : `${order.colors.join(', ')}`;
+    const surchargeLabel = order.product === 'Ruffle Bucket Hat' && order.colors.length === 3 && order.bucketHatStyle === 'main-outer-top' && !order.allOneColor
+      ? ' (+$2)'
+      : '';
+    summaryColors.textContent = `${colorText}${surchargeLabel}`;
+    summaryProductPrice.textContent = `$${subtotal}`;
+  } else {
+    singleSummaryItem.style.display = 'none';
+    checkoutItemList.style.display = 'grid';
+    checkoutItemList.innerHTML = items.map((order, index) => {
+      const colorText = order.allOneColor && order.colors.length
+        ? `All one color: ${order.colors[0]}`
+        : `${order.colors.join(', ')}`;
+      const price = getProductPrice(order.product, order.colors.length, order.allOneColor, order.bucketHatStyle);
+      return `
+        <div class="checkout-item-row">
+          <div>
+            <p class="item-title">${index + 1}. ${order.product}</p>
+            <p class="item-meta">${colorText}</p>
+          </div>
+          <strong>$${price}</strong>
+        </div>
+      `;
+    }).join('');
+    summaryProduct.textContent = `${items.length} items in order`;
+    summaryColors.textContent = 'Review the list above for details.';
+    summaryProductPrice.textContent = `$${subtotal}`;
+  }
+
   summaryShipping.textContent = `$${shippingCost}`;
   summaryTotal.textContent = `$${total}`;
 }
@@ -372,8 +456,17 @@ if (customForm) {
 if (goCheckoutButton) {
   goCheckoutButton.addEventListener('click', () => {
     if (!validateCustomOrder()) return;
-    if (storeCustomOrder()) {
-      window.location.href = 'checkout.html';
+    addCurrentOrderItem();
+    window.location.href = 'checkout.html';
+  });
+}
+
+if (addToOrderButton) {
+  addToOrderButton.addEventListener('click', () => {
+    if (!validateCustomOrder()) return;
+    if (addCurrentOrderItem()) {
+      renderCartList();
+      if (customMessage) customMessage.textContent = 'Item added to your order.';
     }
   });
 }
@@ -412,5 +505,6 @@ if (shippingSelect) {
 
 window.addEventListener('DOMContentLoaded', () => {
   updateColorPickers();
+  renderCartList();
   updateCheckoutSummary();
 });
