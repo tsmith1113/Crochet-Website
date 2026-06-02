@@ -46,8 +46,13 @@ function getProductColorLabels(product) {
     case 'Scrunchie':
       return ['Primary Color', 'Accent Color'];
     case 'Ruffle Bucket Hat':
-      if (bucketHatStyleSelect && bucketHatStyleSelect.value === 'main-top') {
-        return ['Main Color', 'Top Color'];
+      if (bucketHatStyleSelect) {
+        if (bucketHatStyleSelect.value === 'main-top') {
+          return ['Main Color', 'Top Color'];
+        }
+        if (bucketHatStyleSelect.value === 'main-outer') {
+          return ['Main Color', 'Outer Color'];
+        }
       }
       return ['Main Color', 'Outer Color', 'Top Color'];
     default:
