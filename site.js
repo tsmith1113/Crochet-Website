@@ -34,6 +34,8 @@ const summaryProductPrice = document.getElementById('summary-product-price');
 const summaryShipping = document.getElementById('summary-shipping');
 const summaryTotal = document.getElementById('summary-total');
 const productSelect = customForm ? customForm.querySelector('select[name="product"]') : null;
+const bucketHatStyleControl = document.getElementById('bucket-hat-style-control');
+const bucketHatStyleSelect = document.getElementById('bucket-hat-color-style');
 const allOneColorControl = document.getElementById('all-one-color-control');
 const allOneColorCheckbox = document.getElementById('all-one-color-checkbox');
 
@@ -44,6 +46,9 @@ function getProductColorLabels(product) {
     case 'Scrunchie':
       return ['Primary Color', 'Accent Color'];
     case 'Ruffle Bucket Hat':
+      if (bucketHatStyleSelect && bucketHatStyleSelect.value === 'main-top') {
+        return ['Main Color', 'Top Color'];
+      }
       return ['Main Color', 'Outer Color', 'Top Color'];
     default:
       return ['Main Color'];
@@ -165,6 +170,17 @@ function updateColorPickers() {
     }
     colorPickers.appendChild(picker);
   });
+
+  if (bucketHatStyleControl) {
+    if (product === 'Ruffle Bucket Hat') {
+      bucketHatStyleControl.style.display = 'block';
+    } else {
+      bucketHatStyleControl.style.display = 'none';
+      if (bucketHatStyleSelect) {
+        bucketHatStyleSelect.value = 'main-top';
+      }
+    }
+  }
 
   if (allOneColorControl) {
     if (supportsAllOneColor(product)) {
@@ -330,6 +346,10 @@ if (goCheckoutButton) {
 
 if (productSelect) {
   productSelect.addEventListener('change', updateColorPickers);
+}
+
+if (bucketHatStyleSelect) {
+  bucketHatStyleSelect.addEventListener('change', updateColorPickers);
 }
 
 if (allOneColorCheckbox) {
