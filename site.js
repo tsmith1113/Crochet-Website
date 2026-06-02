@@ -38,6 +38,7 @@ const bucketHatStyleControl = document.getElementById('bucket-hat-style-control'
 const bucketHatStyleSelect = document.getElementById('bucket-hat-color-style');
 const allOneColorControl = document.getElementById('all-one-color-control');
 const allOneColorCheckbox = document.getElementById('all-one-color-checkbox');
+const extraColorNote = document.getElementById('extra-color-note');
 
 function getProductColorLabels(product) {
   switch (product) {
@@ -202,6 +203,7 @@ function updateColorPickers() {
   }
 
   updateDisabledOptions();
+  updateThirdColorNote();
 }
 
 function serializeCustomOrder() {
@@ -250,7 +252,25 @@ function loadOrder() {
 
 function getProductPrice(product, colorCount) {
   const base = basePrices[product] || 0;
-  return base + Math.max(0, colorCount - 1) * extraColorPrice;
+  const thirdColorSurcharge = product === 'Ruffle Bucket Hat' && colorCount === 3 ? 2 : 0;
+  return base + thirdColorSurcharge;
+}
+
+function shouldShowThirdColorNote() {
+  if (!extraColorNote || !bucketHatStyleSelect) return false;
+  const product = getSelectedProduct();
+  if (product !== 'Ruffle Bucket Hat' || bucketHatStyleSelect.value !== 'main-outer-top') return false;
+  const selects = Array.from(colorPickers.querySelectorAll('.color-select'));
+  return Boolean(selects[2] && selects[2].value);
+}
+
+function updateThirdColorNote() {
+  if (!extraColorNote) return;
+  if (shouldShowThirdColorNote()) {
+    extraColorNote.style.display = 'block';
+  } else {
+    extraColorNote.style.display = 'none';
+  }
 }
 
 function getShippingPrice(value) {
@@ -277,9 +297,12 @@ function updateCheckoutSummary() {
   const total = subtotal + shippingCost;
 
   summaryProduct.textContent = `${order.product}`;
-  summaryColors.textContent = order.allOneColor && order.colors.length
+  const colorText = order.allOneColor && order.colors.length
     ? `All one color: ${order.colors[0]}`
     : `${order.colors.join(', ')}`;
+  summaryColors.textContent = order.product === 'Ruffle Bucket Hat' && order.colors.length === 3
+    ? `${colorText} (+$2)`
+    : colorText;
   summaryProductPrice.textContent = `$${subtotal}`;
   summaryShipping.textContent = `$${shippingCost}`;
   summaryTotal.textContent = `$${total}`;

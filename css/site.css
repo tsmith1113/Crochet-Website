@@ -401,6 +401,12 @@ section h2 {
   color: var(--text);
 }
 
+.color-note {
+  color: var(--primary);
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+}
+
 .all-one-color-control label {
   display: inline-flex;
   align-items: center;
