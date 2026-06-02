@@ -33,6 +33,8 @@ const summaryColors = document.getElementById('summary-colors');
 const summaryProductPrice = document.getElementById('summary-product-price');
 const summaryShipping = document.getElementById('summary-shipping');
 const summaryTotal = document.getElementById('summary-total');
+const summaryExtraLine = document.getElementById('summary-extra-line');
+const summaryExtra = document.getElementById('summary-extra');
 const checkoutItemList = document.getElementById('checkout-item-list');
 const singleSummaryItem = document.getElementById('single-summary-item');
 const productSelect = customForm ? customForm.querySelector('select[name="product"]') : null;
@@ -338,11 +340,12 @@ function renderCartList() {
 
 function updateCheckoutSummary() {
   const items = loadOrderItems();
-  if (!summaryProduct || !summaryColors || !summaryProductPrice || !summaryShipping || !summaryTotal || !checkoutItemList || !singleSummaryItem) return;
+  if (!summaryProduct || !summaryColors || !summaryProductPrice || !summaryShipping || !summaryTotal || !checkoutItemList || !singleSummaryItem || !summaryExtraLine || !summaryExtra) return;
 
   if (!items.length) {
     singleSummaryItem.style.display = 'flex';
     checkoutItemList.style.display = 'none';
+    summaryExtraLine.style.display = 'none';
     summaryProduct.textContent = 'No product selected';
     summaryColors.textContent = 'Select a product and colors to see the price.';
     summaryProductPrice.textContent = '$0';
@@ -356,20 +359,24 @@ function updateCheckoutSummary() {
   const subtotal = items.reduce((sum, item) => {
     return sum + getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
   }, 0);
+  const extraFee = items.reduce((sum, item) => {
+    return sum + (item.product === 'Ruffle Bucket Hat' && item.colors.length === 3 && item.bucketHatStyle === 'main-outer-top' && !item.allOneColor ? 2 : 0);
+  }, 0);
   const total = subtotal + shippingCost;
 
   if (items.length === 1) {
     checkoutItemList.style.display = 'none';
     singleSummaryItem.style.display = 'flex';
+    summaryExtraLine.style.display = extraFee ? 'flex' : 'none';
+    if (extraFee) {
+      summaryExtra.textContent = `$${extraFee}`;
+    }
     const order = items[0];
     summaryProduct.textContent = `${order.product}`;
     const colorText = order.allOneColor && order.colors.length
       ? `All one color: ${order.colors[0]}`
       : `${order.colors.join(', ')}`;
-    const surchargeLabel = order.product === 'Ruffle Bucket Hat' && order.colors.length === 3 && order.bucketHatStyle === 'main-outer-top' && !order.allOneColor
-      ? ' (+$2)'
-      : '';
-    summaryColors.textContent = `${colorText}${surchargeLabel}`;
+    summaryColors.textContent = colorText;
     summaryProductPrice.textContent = `$${subtotal}`;
   } else {
     singleSummaryItem.style.display = 'none';
@@ -392,6 +399,10 @@ function updateCheckoutSummary() {
     summaryProduct.textContent = `${items.length} items in order`;
     summaryColors.textContent = 'Review the list above for details.';
     summaryProductPrice.textContent = `$${subtotal}`;
+    summaryExtraLine.style.display = extraFee ? 'flex' : 'none';
+    if (extraFee) {
+      summaryExtra.textContent = `$${extraFee}`;
+    }
   }
 
   summaryShipping.textContent = `$${shippingCost}`;
