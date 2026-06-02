@@ -61,7 +61,7 @@
 
         <section id="custom" class="custom">
             <h2>Custom Orders</h2>
-            <form class="custom-form">
+            <form class="custom-form" id="custom-form">
                 <input type="text" placeholder="Your Name" required>
                 <input type="email" placeholder="Email Address" required>
                 <select required>
@@ -70,21 +70,26 @@
                     <option>Ruffle Bucket Hat</option>
                     <option>Scrunchie</option>
                 </select>
-                <select required>
+                <select id="color-count-select" required>
                     <option value="">Select Number of Colors</option>
                     <option value="1">1 Color</option>
                     <option value="2">2 Colors</option>
                     <option value="3">3 Colors</option>
                 </select>
-                <select required>
-                    <option value="">Select Color</option>
-                    <option>Blush Pink</option>
-                    <option>Soft Cream</option>
-                    <option>Sage Green</option>
-                    <option>Mustard Yellow</option>
-                    <option>Lavender</option>
-                    <option>Charcoal Gray</option>
-                </select>
+                <div id="color-pickers" class="color-pickers">
+                    <label class="color-select-group">
+                        <span>Color 1</span>
+                        <select class="color-select" required>
+                            <option value="">Select Color</option>
+                            <option>Blush Pink</option>
+                            <option>Soft Cream</option>
+                            <option>Sage Green</option>
+                            <option>Mustard Yellow</option>
+                            <option>Lavender</option>
+                            <option>Charcoal Gray</option>
+                        </select>
+                    </label>
+                </div>
                 <textarea placeholder="Tell me your color choices and details"></textarea>
                 <button type="submit">Submit Request</button>
             </form>
@@ -101,5 +106,6 @@
         <p>© 2026 Stitched By Trae. Handmade with ❤️</p>
     </footer>
 
+    <script src="site.js"></script>
 </body>
 </html>

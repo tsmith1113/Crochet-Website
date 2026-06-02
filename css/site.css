@@ -209,6 +209,23 @@ section h2 {
   resize: vertical;
 }
 
+.color-pickers {
+  display: grid;
+  gap: 1rem;
+}
+
+.color-select-group {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.color-select-group span {
+  font-weight: 600;
+  color: var(--text);
+}
+
 .custom-form button {
   width: max-content;
   padding: 0.95rem 1.8rem;
