@@ -45,6 +45,7 @@ header {
 }
 
 .nav-bar {
+  position: relative;
   max-width: 1160px;
   margin: 0 auto;
   padding: 1rem 1.5rem;
@@ -82,6 +83,29 @@ header {
   color: var(--text);
   font-weight: 600;
   transition: color 0.2s ease;
+}
+
+.nav-toggle {
+  display: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  gap: 0.35rem;
+  padding: 0.5rem;
+}
+
+.nav-toggle span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 999px;
+}
+
+.form-message {
+  margin-top: 1rem;
+  color: var(--primary);
+  font-weight: 600;
 }
 
 .nav-links a:hover {
@@ -128,6 +152,157 @@ header {
 .button:hover {
   transform: translateY(-2px);
   box-shadow: 0 14px 28px rgba(194, 125, 82, 0.22);
+}
+
+.checkout-hero {
+  background: linear-gradient(135deg, #fff3ea 0%, #f7e5d9 100%);
+  text-align: center;
+  padding: 4rem 1.5rem;
+}
+
+.checkout-hero h2 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.checkout-hero p {
+  margin: 1rem auto 0;
+  max-width: 720px;
+  color: var(--muted);
+}
+
+.checkout-layout {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 2rem;
+  max-width: 1160px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.checkout-form,
+.checkout-summary {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: var(--shadow);
+}
+
+.checkout-form h2,
+.checkout-summary h2 {
+  margin-top: 0;
+  font-size: 1.6rem;
+}
+
+.checkout-block {
+  margin-bottom: 2rem;
+}
+
+.checkout-intro {
+  margin: 0.75rem 0 1.5rem;
+  color: var(--muted);
+  max-width: 720px;
+}
+
+.checkout-field-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.checkout-field-grid input,
+.checkout-field-grid select {
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(140, 111, 95, 0.2);
+  background: #faf6f2;
+  border-radius: 16px;
+  font: inherit;
+}
+
+.checkout-form select {
+  margin-top: 0.5rem;
+}
+
+.checkout-shipping-block select {
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(140, 111, 95, 0.2);
+  background: #faf6f2;
+  border-radius: 16px;
+}
+
+.checkout-form .button {
+  margin-top: 1.5rem;
+}
+
+.summary-header p {
+  margin: 0.75rem 0 1.5rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.checkout-summary-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(140, 111, 95, 0.12);
+  border-radius: 20px;
+  background: #fbf4ee;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(140, 111, 95, 0.12);
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.item-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.item-meta {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.summary-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(140, 111, 95, 0.18);
+}
+
+.checkout-help {
+  margin-top: 1.5rem;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.checkout-help a {
+  color: var(--primary);
+}
+
+@media (max-width: 900px) {
+  .checkout-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .checkout-field-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 section {
@@ -261,13 +436,43 @@ footer {
 
 @media (max-width: 768px) {
   .nav-bar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nav-toggle {
+    display: flex;
     flex-direction: column;
-    align-items: flex-start;
   }
 
   .nav-links {
+    position: absolute;
+    top: 100%;
+    right: 1.5rem;
+    left: 1.5rem;
+    background: rgba(255, 255, 255, 0.98);
+    flex-direction: column;
+    border-radius: 20px;
+    padding: 1rem;
+    display: none;
+    box-shadow: 0 20px 40px rgba(60, 47, 47, 0.12);
+    z-index: 20;
+  }
+
+  .nav-links.open {
+    display: flex;
+  }
+
+  .nav-links li {
     width: 100%;
-    justify-content: center;
+  }
+
+  .nav-links a {
+    display: block;
+    padding: 0.85rem 0.5rem;
+    width: 100%;
+    border-radius: 12px;
   }
 
   .custom-form {

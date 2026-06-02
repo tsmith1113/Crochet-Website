@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Stitched By Trae</title>
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+    <header>
+        <nav class="nav-bar">
+            <div class="nav-brand">
+                <span class="logo">🧶</span>
+                <h1>Stitched By Trae</h1>
+            </div>
+            <button id="nav-toggle" class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-links" id="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="index.html#shop">Shop</a></li>
+                <li><a href="checkout.html">Checkout</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="checkout-hero">
+            <h2>Checkout</h2>
+            <p>Complete your order with a secure checkout. Review your selected items, add your shipping details, and submit your request.</p>
+        </section>
+
+        <section class="checkout-layout">
+            <div class="checkout-form">
+                <form id="checkout-form">
+                    <div class="checkout-block">
+                        <h2>Billing Details</h2>
+                        <p class="checkout-intro">Enter the billing address and contact info for your order.</p>
+                        <div class="checkout-field-grid">
+                            <input type="text" name="fullName" placeholder="Full Name" autocomplete="name" required>
+                            <input type="email" name="email" placeholder="Email Address" autocomplete="email" required>
+                            <input type="text" name="street" placeholder="Street Address" autocomplete="street-address" required>
+                            <input type="text" name="city" placeholder="City" autocomplete="address-level2" required>
+                            <input type="text" name="state" placeholder="State" autocomplete="address-level1" required>
+                            <input type="text" name="postal" placeholder="Postal Code" autocomplete="postal-code" required>
+                        </div>
+                    </div>
+
+                    <div class="checkout-block">
+                        <h2>Payment Details</h2>
+                        <p class="checkout-intro">Securely add your card information to complete the purchase.</p>
+                        <div class="checkout-field-grid">
+                            <input type="text" name="cardName" placeholder="Cardholder Name" autocomplete="cc-name" required>
+                            <input type="text" name="cardNumber" placeholder="Card Number" autocomplete="cc-number" required>
+                            <input type="text" name="cardExpiry" placeholder="Expiration Date (MM/YY)" autocomplete="cc-exp" required>
+                            <input type="text" name="cardCvc" placeholder="CVC" autocomplete="cc-csc" required>
+                        </div>
+                    </div>
+
+                    <div class="checkout-block checkout-shipping-block">
+                        <h2>Shipping</h2>
+                        <p class="checkout-intro">Choose a shipping option for your handcrafted order.</p>
+                        <select name="shipping" required>
+                            <option value="">Select Shipping Speed</option>
+                            <option>Standard - 5 to 7 days</option>
+                            <option>Express - 2 to 3 days</option>
+                            <option>Pickup</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="button">Place Order</button>
+                    <div class="form-message" id="checkout-form-message" aria-live="polite"></div>
+                </form>
+            </div>
+
+            <aside class="checkout-summary">
+                <div class="summary-header">
+                    <h2>Order Summary</h2>
+                    <p>Your selected items are listed below. Update the shipping option if needed.</p>
+                </div>
+                <div class="checkout-summary-card">
+                    <div class="summary-item">
+                        <div>
+                            <p class="item-title">Crochet Beanie</p>
+                            <p class="item-meta">Qty 1 · Blush Pink</p>
+                        </div>
+                        <strong>$25</strong>
+                    </div>
+                    <div class="summary-item">
+                        <div>
+                            <p class="item-title">Ruffle Bucket Hat</p>
+                            <p class="item-meta">Qty 1 · Sage Green</p>
+                        </div>
+                        <strong>$35</strong>
+                    </div>
+                    <div class="summary-item summary-line">
+                        <span>Shipping</span>
+                        <strong>$5</strong>
+                    </div>
+                    <div class="summary-total">
+                        <span>Total</span>
+                        <strong>$65</strong>
+                    </div>
+                </div>
+                <p class="checkout-help">Need help? Email us at <a href="mailto:hello@stitchedbytrae.com">hello@stitchedbytrae.com</a>.</p>
+            </aside>
+        </section>
+    </main>
+
+    <footer>
+        <p>© 2026 Stitched By Trae. Handmade with ❤️</p>
+    </footer>
+
+</body>
+</html>
