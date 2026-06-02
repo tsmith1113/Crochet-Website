@@ -34,11 +34,13 @@ const summaryProductPrice = document.getElementById('summary-product-price');
 const summaryShipping = document.getElementById('summary-shipping');
 const summaryTotal = document.getElementById('summary-total');
 const productSelect = customForm ? customForm.querySelector('select[name="product"]') : null;
+const allOneColorControl = document.getElementById('all-one-color-control');
+const allOneColorCheckbox = document.getElementById('all-one-color-checkbox');
 
 function getProductColorLabels(product) {
   switch (product) {
     case 'Beanie':
-      return ['Main Color'];
+      return ['Color'];
     case 'Scrunchie':
       return ['Primary Color', 'Accent Color'];
     case 'Ruffle Bucket Hat':
@@ -99,8 +101,37 @@ function validateCustomOrder() {
   return true;
 }
 
+function supportsAllOneColor(product) {
+  return product === 'Scrunchie' || product === 'Ruffle Bucket Hat';
+}
+
+function updateAllOneColorState() {
+  if (!colorPickers) return;
+  const checked = allOneColorCheckbox && allOneColorCheckbox.checked;
+  const colorSelects = Array.from(colorPickers.querySelectorAll('.color-select'));
+
+  colorSelects.forEach((select, index) => {
+    if (index === 0) {
+      select.required = true;
+      select.disabled = false;
+      return;
+    }
+
+    select.disabled = checked;
+    select.required = !checked;
+    if (checked) {
+      select.value = '';
+    }
+  });
+}
+
 function updateDisabledOptions() {
   if (!colorPickers) return;
+  if (allOneColorCheckbox && allOneColorCheckbox.checked) {
+    updateAllOneColorState();
+    return;
+  }
+
   const selectedColors = getSelectedColors();
   const colorSelects = colorPickers.querySelectorAll('.color-select');
 
@@ -135,6 +166,17 @@ function updateColorPickers() {
     colorPickers.appendChild(picker);
   });
 
+  if (allOneColorControl) {
+    if (supportsAllOneColor(product)) {
+      allOneColorControl.style.display = 'block';
+    } else {
+      allOneColorControl.style.display = 'none';
+      if (allOneColorCheckbox) {
+        allOneColorCheckbox.checked = false;
+      }
+    }
+  }
+
   updateDisabledOptions();
 }
 
@@ -142,15 +184,23 @@ function serializeCustomOrder() {
   if (!customForm) return null;
 
   const product = getSelectedProduct();
-  const colors = getSelectedColors();
+  const selectedColors = getSelectedColors();
   const notes = customForm.querySelector('textarea[name="notes"]').value.trim();
+  const allOneColor = allOneColorCheckbox && allOneColorCheckbox.checked;
 
-  if (!product || !colors.length) return null;
+  if (!product || !selectedColors.length) return null;
+
+  let colors = selectedColors;
+  if (allOneColor && supportsAllOneColor(product)) {
+    const expectedCount = getProductColorLabels(product).length;
+    colors = Array(expectedCount).fill(selectedColors[0]);
+  }
 
   return {
     product,
     colors,
-    notes
+    notes,
+    allOneColor: Boolean(allOneColor)
   };
 }
 
@@ -203,7 +253,9 @@ function updateCheckoutSummary() {
   const total = subtotal + shippingCost;
 
   summaryProduct.textContent = `${order.product}`;
-  summaryColors.textContent = `${order.colors.join(', ')}`;
+  summaryColors.textContent = order.allOneColor && order.colors.length
+    ? `All one color: ${order.colors[0]}`
+    : `${order.colors.join(', ')}`;
   summaryProductPrice.textContent = `$${subtotal}`;
   summaryShipping.textContent = `$${shippingCost}`;
   summaryTotal.textContent = `$${total}`;
@@ -275,6 +327,13 @@ if (goCheckoutButton) {
 
 if (productSelect) {
   productSelect.addEventListener('change', updateColorPickers);
+}
+
+if (allOneColorCheckbox) {
+  allOneColorCheckbox.addEventListener('change', () => {
+    updateAllOneColorState();
+    updateDisabledOptions();
+  });
 }
 
 if (checkoutForm) {
