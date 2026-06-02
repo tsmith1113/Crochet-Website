@@ -7,6 +7,18 @@
   'Charcoal Gray'
 ];
 
+const basePrices = {
+  Beanie: 25,
+  'Ruffle Bucket Hat': 35,
+  Scrunchie: 8
+};
+
+const extraColorPrice = 7;
+const shippingPrices = {
+  standard: 5,
+  express: 12
+};
+
 const colorCountSelect = document.getElementById('color-count-select');
 const colorPickers = document.getElementById('color-pickers');
 const navToggle = document.getElementById('nav-toggle');
@@ -15,6 +27,13 @@ const customForm = document.getElementById('custom-form');
 const checkoutForm = document.getElementById('checkout-form');
 const customMessage = document.getElementById('custom-form-message');
 const checkoutMessage = document.getElementById('checkout-form-message');
+const goCheckoutButton = document.getElementById('go-checkout-button');
+const shippingSelect = document.getElementById('shipping-select');
+const summaryProduct = document.getElementById('summary-product');
+const summaryColors = document.getElementById('summary-colors');
+const summaryProductPrice = document.getElementById('summary-product-price');
+const summaryShipping = document.getElementById('summary-shipping');
+const summaryTotal = document.getElementById('summary-total');
 
 function createColorSelect(index) {
   const wrapper = document.createElement('label');
@@ -42,6 +61,29 @@ function getSelectedColors() {
   return Array.from(colorPickers.querySelectorAll('.color-select'))
     .map(select => select.value)
     .filter(Boolean);
+}
+
+function getSelectedProduct() {
+  if (!customForm) return '';
+  return customForm.querySelector('select[name="product"]').value;
+}
+
+function validateCustomOrder() {
+  const product = getSelectedProduct();
+  const colors = getSelectedColors();
+
+  if (!product) {
+    if (customMessage) customMessage.textContent = 'Please select a product before proceeding to checkout.';
+    return false;
+  }
+
+  if (!colors.length) {
+    if (customMessage) customMessage.textContent = 'Please select at least one color before proceeding to checkout.';
+    return false;
+  }
+
+  if (customMessage) customMessage.textContent = '';
+  return true;
 }
 
 function updateDisabledOptions() {
@@ -95,31 +137,88 @@ function updateColorPickers() {
   updateDisabledOptions();
 }
 
+function serializeCustomOrder() {
+  if (!customForm) return null;
+
+  const product = getSelectedProduct();
+  const colors = getSelectedColors();
+  const notes = customForm.querySelector('textarea[name="notes"]').value.trim();
+
+  if (!product || !colors.length) return null;
+
+  return {
+    product,
+    colors,
+    notes
+  };
+}
+
+function storeCustomOrder() {
+  const order = serializeCustomOrder();
+  if (!order) return false;
+  window.localStorage.setItem('stitchedByTraeOrder', JSON.stringify(order));
+  return true;
+}
+
+function loadCustomOrder() {
+  try {
+    const stored = window.localStorage.getItem('stitchedByTraeOrder');
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getProductPrice(product, colorCount) {
+  const base = basePrices[product] || 0;
+  return base + Math.max(0, colorCount - 1) * extraColorPrice;
+}
+
+function getShippingPrice(value) {
+  return shippingPrices[value] || 0;
+}
+
+function updateCheckoutSummary() {
+  const order = loadCustomOrder();
+  if (!summaryProduct || !summaryColors || !summaryProductPrice || !summaryShipping || !summaryTotal) return;
+
+  if (!order) {
+    summaryProduct.textContent = 'No product selected';
+    summaryColors.textContent = 'Choose a product and colors on the home page.';
+    summaryProductPrice.textContent = '$0';
+    summaryShipping.textContent = '$0';
+    summaryTotal.textContent = '$0';
+    return;
+  }
+
+  const colorCount = order.colors.length;
+  const subtotal = getProductPrice(order.product, colorCount);
+  const shippingKey = shippingSelect ? shippingSelect.value : 'standard';
+  const shippingCost = getShippingPrice(shippingKey);
+  const total = subtotal + shippingCost;
+
+  summaryProduct.textContent = `${order.product}`;
+  summaryColors.textContent = `${order.colors.join(', ')}`;
+  summaryProductPrice.textContent = `$${subtotal}`;
+  summaryShipping.textContent = `$${shippingCost}`;
+  summaryTotal.textContent = `$${total}`;
+}
+
 function handleFormSubmit(event) {
   event.preventDefault();
 
   const form = event.target;
-  const formId = form.id;
-  const messageElement = formId === 'custom-form' ? customMessage : checkoutMessage;
-  const messageText = formId === 'custom-form'
-    ? 'Thanks! Your custom order request has been received.'
-    : 'Thanks! Your checkout request is complete.';
-
-  if (messageElement) {
-    messageElement.textContent = messageText;
-  }
-
-  form.reset();
-  if (colorCountSelect) {
-    colorCountSelect.value = '';
-  }
-  updateColorPickers();
-
-  setTimeout(() => {
-    if (messageElement) {
-      messageElement.textContent = '';
+  if (form.id === 'checkout-form') {
+    if (checkoutMessage) {
+      checkoutMessage.textContent = 'Thanks! Your checkout request is complete.';
     }
-  }, 5000);
+    form.reset();
+    if (shippingSelect) shippingSelect.value = '';
+    updateCheckoutSummary();
+    setTimeout(() => {
+      if (checkoutMessage) checkoutMessage.textContent = '';
+    }, 5000);
+  }
 }
 
 function closeMobileNav() {
@@ -160,6 +259,14 @@ if (customForm) {
   customForm.addEventListener('submit', handleFormSubmit);
 }
 
+if (goCheckoutButton) {
+  goCheckoutButton.addEventListener('click', () => {
+    if (validateCustomOrder() && storeCustomOrder()) {
+      window.location.href = 'checkout.html';
+    }
+  });
+}
+
 if (checkoutForm) {
   checkoutForm.addEventListener('submit', handleFormSubmit);
 }
@@ -176,6 +283,11 @@ if (colorPickers) {
   });
 }
 
+if (shippingSelect) {
+  shippingSelect.addEventListener('change', updateCheckoutSummary);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   updateColorPickers();
+  updateCheckoutSummary();
 });

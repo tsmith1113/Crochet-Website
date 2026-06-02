@@ -63,11 +63,10 @@
                     <div class="checkout-block checkout-shipping-block">
                         <h2>Shipping</h2>
                         <p class="checkout-intro">Choose a shipping option for your handcrafted order.</p>
-                        <select name="shipping" required>
+                        <select id="shipping-select" name="shipping" required>
                             <option value="">Select Shipping Speed</option>
-                            <option>Standard - 5 to 7 days</option>
-                            <option>Express - 2 to 3 days</option>
-                            <option>Pickup</option>
+                            <option value="standard">Standard - 5 to 7 days</option>
+                            <option value="express">Express - 2 to 3 days</option>
                         </select>
                     </div>
 
@@ -79,30 +78,23 @@
             <aside class="checkout-summary">
                 <div class="summary-header">
                     <h2>Order Summary</h2>
-                    <p>Your selected items are listed below. Update the shipping option if needed.</p>
+                    <p>Your selected item and color choices are shown below.</p>
                 </div>
                 <div class="checkout-summary-card">
                     <div class="summary-item">
                         <div>
-                            <p class="item-title">Crochet Beanie</p>
-                            <p class="item-meta">Qty 1 · Blush Pink</p>
+                            <p class="item-title" id="summary-product">No product selected</p>
+                            <p class="item-meta" id="summary-colors">Select a product and colors to see the price.</p>
                         </div>
-                        <strong>$25</strong>
+                        <strong id="summary-product-price">$0</strong>
                     </div>
-                    <div class="summary-item">
-                        <div>
-                            <p class="item-title">Ruffle Bucket Hat</p>
-                            <p class="item-meta">Qty 1 · Sage Green</p>
-                        </div>
-                        <strong>$35</strong>
-                    </div>
-                    <div class="summary-item summary-line">
+                    <div class="summary-line">
                         <span>Shipping</span>
-                        <strong>$5</strong>
+                        <strong id="summary-shipping">$0</strong>
                     </div>
                     <div class="summary-total">
                         <span>Total</span>
-                        <strong>$65</strong>
+                        <strong id="summary-total">$0</strong>
                     </div>
                 </div>
                 <p class="checkout-help">Need help? Email us at <a href="mailto:hello@stitchedbytrae.com">hello@stitchedbytrae.com</a>.</p>
