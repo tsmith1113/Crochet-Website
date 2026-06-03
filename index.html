@@ -101,7 +101,26 @@
                     </label>
                 </div>
                 <p id="extra-color-note" class="color-note" style="display:none;">Third color adds $2.</p>
-                <textarea name="notes" placeholder="Tell me your color choices and details"></textarea>
+                <div class="measurement-section">
+                    <h3>Head Measurements</h3>
+                    <p class="measurement-note">Enter your head circumference in inches, or choose a size if you don’t want to add measurements.</p>
+                    <div class="measurement-grid">
+                        <label>
+                            <span>Head Circumference (inches)</span>
+                            <input type="number" step="0.25" min="18" max="28" name="headCircumference" placeholder="e.g. 22.5">
+                        </label>
+                        <label>
+                            <span>Choose a Size</span>
+                            <select name="size">
+                                <option value="">Select a size if not using measurements</option>
+                                <option value="Small (20-21 in)">Small (20-21 in)</option>
+                                <option value="Medium (21-22 in)">Medium (21-22 in)</option>
+                                <option value="Large (22-23 in)">Large (22-23 in)</option>
+                                <option value="XL (23-24 in)">XL (23-24 in)</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
                 <div class="order-actions">
                     <button type="button" id="add-to-order-button">Add to Order</button>
                     <button type="button" id="go-checkout-button">Go to Checkout</button>

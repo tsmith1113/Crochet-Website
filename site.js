@@ -94,6 +94,13 @@ function getSelectedColors() {
     .filter(Boolean);
 }
 
+function getMeasurementValues() {
+  if (!customForm) return { headCircumference: '', size: '' };
+  const headCircumference = customForm.querySelector('input[name="headCircumference"]').value.trim();
+  const size = customForm.querySelector('select[name="size"]').value;
+  return { headCircumference, size };
+}
+
 function getSelectedProduct() {
   if (!customForm) return '';
   return customForm.querySelector('select[name="product"]').value;
@@ -102,6 +109,7 @@ function getSelectedProduct() {
 function validateCustomOrder() {
   const product = getSelectedProduct();
   const colors = getSelectedColors();
+  const { headCircumference, size } = getMeasurementValues();
 
   if (!product) {
     if (customMessage) customMessage.textContent = 'Please select a product before proceeding to checkout.';
@@ -110,6 +118,16 @@ function validateCustomOrder() {
 
   if (!colors.length) {
     if (customMessage) customMessage.textContent = 'Please select at least one color before proceeding to checkout.';
+    return false;
+  }
+
+  if (!headCircumference && !size) {
+    if (customMessage) customMessage.textContent = 'Please enter your head measurement or select a size.';
+    return false;
+  }
+
+  if (headCircumference && Number.isNaN(Number(headCircumference))) {
+    if (customMessage) customMessage.textContent = 'Please enter a valid number for your head circumference.';
     return false;
   }
 
@@ -216,7 +234,7 @@ function serializeCustomOrder() {
 
   const product = getSelectedProduct();
   const selectedColors = getSelectedColors();
-  const notes = customForm.querySelector('textarea[name="notes"]').value.trim();
+  const { headCircumference, size } = getMeasurementValues();
   const allOneColor = allOneColorCheckbox && allOneColorCheckbox.checked;
   const bucketHatStyle = bucketHatStyleSelect ? bucketHatStyleSelect.value : '';
 
@@ -231,7 +249,8 @@ function serializeCustomOrder() {
   return {
     product,
     colors,
-    notes,
+    headCircumference,
+    size,
     allOneColor: Boolean(allOneColor),
     bucketHatStyle
   };
@@ -283,6 +302,17 @@ function getProductPrice(product, colorCount, allOneColor = false, bucketHatStyl
   const base = basePrices[product] || 0;
   const thirdColorSurcharge = product === 'Ruffle Bucket Hat' && colorCount === 3 && bucketHatStyle === 'main-outer-top' && !allOneColor ? 2 : 0;
   return base + thirdColorSurcharge;
+}
+
+function getMeasurementText(order) {
+  if (!order) return '';
+  if (order.headCircumference) {
+    return `Measurement: ${order.headCircumference} in`;
+  }
+  if (order.size) {
+    return `Size: ${order.size}`;
+  }
+  return '';
 }
 
 function getExtraColorNoteText() {
@@ -340,7 +370,7 @@ function renderCartList() {
         <div>
           <strong>${index + 1}. ${item.product}</strong>
           <p>${colorLabel}</p>
-          <p>${item.notes ? item.notes : ''}</p>
+          ${getMeasurementText(item) ? `<p>${getMeasurementText(item)}</p>` : ''}
         </div>
         <div class="cart-list-actions">
           <span>$${itemPrice}</span>
@@ -389,7 +419,8 @@ function updateCheckoutSummary() {
     const colorText = order.allOneColor && order.colors.length
       ? `All one color: ${order.colors[0]}`
       : `${order.colors.join(', ')}`;
-    summaryColors.textContent = colorText;
+    const measurementText = getMeasurementText(order);
+    summaryColors.textContent = measurementText ? `${colorText} • ${measurementText}` : colorText;
     summaryProductPrice.textContent = `$${subtotal}`;
   } else {
     singleSummaryItem.style.display = 'none';
@@ -398,12 +429,14 @@ function updateCheckoutSummary() {
       const colorText = order.allOneColor && order.colors.length
         ? `All one color: ${order.colors[0]}`
         : `${order.colors.join(', ')}`;
+      const measurementText = getMeasurementText(order);
+      const itemMeta = measurementText ? `${colorText} • ${measurementText}` : colorText;
       const price = getProductPrice(order.product, order.colors.length, order.allOneColor, order.bucketHatStyle);
       return `
         <div class="checkout-item-row">
           <div>
             <p class="item-title">${index + 1}. ${order.product}</p>
-            <p class="item-meta">${colorText}</p>
+            <p class="item-meta">${itemMeta}</p>
           </div>
           <div class="cart-list-actions">
             <strong>$${price}</strong>
