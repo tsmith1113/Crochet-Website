@@ -57,11 +57,11 @@ const orderCartList = document.getElementById('order-cart-list');
 const orderItemsKey = 'stitchedByTraeOrderItems';
 
 const stripeConfig = {
-  publishableKey: '', // Replace with your Stripe publishable key (pk_test_...)
+  publishableKey: 'pk_test_1234567890abcdef',
   priceIds: {
-    'Bucket Hat': '',
-    'Ruffle Bucket Hat': '',
-    Scrunchie: ''
+    'Bucket Hat': 'price_1A2B3C4D5E6F7G8H',
+    'Ruffle Bucket Hat': 'price_1H8G7F6E5D4C3B2A',
+    Scrunchie: 'price_1Z9Y8X7W6V5U4T3S'
   },
   successUrl: window.location.origin + '/checkout.html?payment=success',
   cancelUrl: window.location.origin + '/checkout.html?payment=cancel'
