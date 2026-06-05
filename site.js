@@ -359,6 +359,37 @@ function clearBillingDetails() {
   window.localStorage.removeItem(rememberDetailsKey);
 }
 
+function buildCheckoutPayload(form) {
+  if (!form) return null;
+  const emailField = form.querySelector('input[name="email"]');
+  const fullNameField = form.querySelector('input[name="fullName"]');
+  const streetField = form.querySelector('input[name="street"]');
+  const cityField = form.querySelector('input[name="city"]');
+  const stateField = form.querySelector('input[name="state"]');
+  const postalField = form.querySelector('input[name="postal"]');
+  const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
+  const loadedItems = loadOrderItems();
+  const items = loadedItems.map(item => ({
+    ...item,
+    price: getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle)
+  }));
+  const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0), 0);
+  const shippingCost = getShippingPrice(shippingKey);
+
+  return {
+    fullName: fullNameField ? fullNameField.value.trim() : '',
+    email: emailField ? emailField.value.trim() : '',
+    street: streetField ? streetField.value.trim() : '',
+    city: cityField ? cityField.value.trim() : '',
+    state: stateField ? stateField.value.trim() : '',
+    postal: postalField ? postalField.value.trim() : '',
+    shipping: shippingKey,
+    shippingCost,
+    total: subtotal + shippingCost,
+    items,
+  };
+}
+
 function isStripeConfigured() {
   return stripeConfig.publishableKey && Object.values(stripeConfig.priceIds).every(Boolean);
 }
@@ -381,29 +412,36 @@ function showStripeStatus(message) {
   stripeStatusMessage.textContent = message;
 }
 
-function handleStripeCheckout() {
+async function handleStripeCheckout() {
   if (!isStripeConfigured()) {
     showStripeStatus('Stripe is not configured yet. Add your publishable key and price IDs in site.js.');
     return;
   }
 
-  const lineItems = getStripeLineItems();
-  if (!lineItems.length) {
-    showStripeStatus('Add at least one item to your order before paying with Stripe.');
+  const payload = buildCheckoutPayload(checkoutForm);
+  if (!payload || !payload.email || !payload.items?.length) {
+    showStripeStatus('Complete your order and add a valid email before starting Stripe checkout.');
     return;
   }
 
-  const stripe = Stripe(stripeConfig.publishableKey);
-  stripe.redirectToCheckout({
-    lineItems,
-    mode: 'payment',
-    successUrl: stripeConfig.successUrl,
-    cancelUrl: stripeConfig.cancelUrl
-  }).then(result => {
-    if (result.error) {
-      showStripeStatus(result.error.message || 'Stripe checkout failed.');
-    }
+  const response = await fetch('http://localhost:3000/create-checkout-session', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      ...payload,
+      lineItems: getStripeLineItems()
+    })
   });
+
+  const result = await response.json();
+  if (!response.ok || !result.url) {
+    showStripeStatus(result.message || 'Unable to start Stripe checkout.');
+    return;
+  }
+
+  window.location.href = result.url;
 }
 
 function addCurrentOrderItem() {
@@ -665,19 +703,50 @@ function openReceiptEmail(form) {
   window.location.href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
 }
 
-function handleFormSubmit(event) {
+async function handleFormSubmit(event) {
   event.preventDefault();
 
   const form = event.target;
-  if (form.id === 'checkout-form') {
-    if (rememberDetailsCheckbox && rememberDetailsCheckbox.checked) {
-      saveBillingDetails();
-    } else {
-      clearBillingDetails();
+  const payload = buildCheckoutPayload(form);
+
+  if (!payload) {
+    if (checkoutMessage) checkoutMessage.textContent = 'Please complete the order before submitting.';
+    return;
+  }
+
+  if (!payload.email) {
+    if (checkoutMessage) checkoutMessage.textContent = 'Please add an email address before submitting your order.';
+    return;
+  }
+
+  if (!payload.items.length) {
+    if (checkoutMessage) checkoutMessage.textContent = 'Add at least one item to your order before submitting.';
+    return;
+  }
+
+  if (rememberDetailsCheckbox && rememberDetailsCheckbox.checked) {
+    saveBillingDetails();
+  } else {
+    clearBillingDetails();
+  }
+
+  try {
+    const response = await fetch('http://localhost:3000/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Unable to place order.');
     }
 
     if (checkoutMessage) {
-      checkoutMessage.textContent = 'Order placed! A confirmation receipt preview is shown below.';
+      checkoutMessage.textContent = `Order #${result.orderNumber} placed successfully! Confirmation email sent.`;
     }
 
     if (receiptSummary) {
@@ -694,6 +763,9 @@ function handleFormSubmit(event) {
     setTimeout(() => {
       if (checkoutMessage) checkoutMessage.textContent = '';
     }, 5000);
+  } catch (error) {
+    console.error(error);
+    if (checkoutMessage) checkoutMessage.textContent = error.message || 'Order submission failed.';
   }
 }
 

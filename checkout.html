@@ -50,14 +50,10 @@
                     </div>
 
                     <div class="checkout-block">
-                        <h2>Payment Details</h2>
-                        <p class="checkout-intro">Securely add your card information to complete the purchase.</p>
-                        <div class="checkout-field-grid">
-                            <input type="text" name="cardName" placeholder="Cardholder Name" autocomplete="cc-name" required>
-                            <input type="text" name="cardNumber" placeholder="Card Number" autocomplete="cc-number" required>
-                            <input type="text" name="cardExpiry" placeholder="Expiration Date (MM/YY)" autocomplete="cc-exp" required>
-                            <input type="text" name="cardCvc" placeholder="CVC" autocomplete="cc-csc" required>
-                        </div>
+                        <h2>Payment</h2>
+                        <p class="checkout-intro">Click the Stripe button below to pay securely. No card details are entered on this page.</p>
+                        <button type="button" id="stripe-checkout-button" class="button secondary">Checkout with Stripe</button>
+                        <div id="stripe-status-message" class="form-message" aria-live="polite"></div>
                     </div>
 
                     <div class="checkout-block checkout-shipping-block">
@@ -76,10 +72,8 @@
                             Remember my billing details for next time
                         </label>
                         <button type="submit" class="button">Place Order</button>
-                        <button type="button" id="stripe-checkout-button" class="button secondary">Checkout with Stripe</button>
                     </div>
                     <div class="form-message" id="checkout-form-message" aria-live="polite"></div>
-                    <div id="stripe-status-message" class="form-message" aria-live="polite"></div>
                     <div id="receipt-summary" class="receipt-summary" style="display:none; margin-top:1rem;"></div>
                     <button type="button" id="send-receipt-button" class="button secondary" style="display:none; margin-top:0.75rem;">Open receipt in email</button>
                 </form>
@@ -112,7 +106,7 @@
                         <strong id="summary-total">$0</strong>
                     </div>
                 </div>
-                <p class="checkout-help">Need help? Email us at <a href="mailto:hello@stitchedbytrae.com">hello@stitchedbytrae.com</a>.</p>
+                <p class="checkout-help">Need help? Email us at <a href="mailto:stitchedbytrae@gmail.com">stitchedbytrae@gmail.com</a>.</p>
             </aside>
         </section>
     </main>

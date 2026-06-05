@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Stitched By Trae</title>
+  <link rel="stylesheet" href="css/site.css">
+  <style>
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .admin-table th,
+    .admin-table td {
+      border: 1px solid #ddd;
+      padding: 0.75rem;
+      text-align: left;
+    }
+    .admin-table th {
+      background: #f6f6f6;
+    }
+    .admin-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .admin-status {
+      font-weight: 600;
+    }
+    .ship-button[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="nav-bar">
+      <div class="nav-brand">
+        <span class="logo">🧶</span>
+        <h1>Stitched By Trae</h1>
+      </div>
+      <button id="nav-toggle" class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="checkout.html">Checkout</a></li>
+        <li><a href="admin.html">Admin</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="checkout-hero">
+      <h2>Admin Dashboard</h2>
+      <p>View orders, track shipment status, and send shipping emails automatically from this dashboard.</p>
+    </section>
+
+    <section class="checkout-layout" style="padding-bottom: 2rem;">
+      <div class="checkout-form">
+        <div class="checkout-block">
+          <h2>Orders</h2>
+          <p class="checkout-intro">Refresh to retrieve the latest orders from the database.</p>
+          <div class="form-message" id="admin-message" aria-live="polite"></div>
+          <table class="admin-table" id="orders-table">
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Email</th>
+                <th>Total</th>
+                <th>Shipping</th>
+                <th>Status</th>
+                <th>Tracking</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="orders-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2026 Stitched By Trae. Handmade with ❤️</p>
+  </footer>
+
+  <script src="admin.js"></script>
+</body>
+</html>
