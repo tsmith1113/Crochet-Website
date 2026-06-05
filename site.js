@@ -28,6 +28,8 @@ const customMessage = document.getElementById('custom-form-message');
 const checkoutMessage = document.getElementById('checkout-form-message');
 const goCheckoutButton = document.getElementById('go-checkout-button');
 const shippingSelect = document.getElementById('shipping-select');
+const stripeCheckoutButton = document.getElementById('stripe-checkout-button');
+const stripeStatusMessage = document.getElementById('stripe-status-message');
 const summaryProduct = document.getElementById('summary-product');
 const summaryColors = document.getElementById('summary-colors');
 const summaryProductPrice = document.getElementById('summary-product-price');
@@ -53,6 +55,18 @@ const addToOrderButton = document.getElementById('add-to-order-button');
 const orderCartMessage = document.getElementById('order-cart-message');
 const orderCartList = document.getElementById('order-cart-list');
 const orderItemsKey = 'stitchedByTraeOrderItems';
+
+const stripeConfig = {
+  publishableKey: '', // Replace with your Stripe publishable key (pk_test_...)
+  priceIds: {
+    'Bucket Hat': '',
+    'Ruffle Bucket Hat': '',
+    Scrunchie: ''
+  },
+  successUrl: window.location.origin + '/checkout.html?payment=success',
+  cancelUrl: window.location.origin + '/checkout.html?payment=cancel'
+};
+
 const billingDetailsKey = 'stitchedByTraeBillingDetails';
 const rememberDetailsKey = 'stitchedByTraeRememberDetails';
 
@@ -345,6 +359,53 @@ function clearBillingDetails() {
   window.localStorage.removeItem(rememberDetailsKey);
 }
 
+function isStripeConfigured() {
+  return stripeConfig.publishableKey && Object.values(stripeConfig.priceIds).every(Boolean);
+}
+
+function getStripeLineItems() {
+  const items = loadOrderItems();
+  const counts = items.reduce((acc, item) => {
+    acc[item.product] = (acc[item.product] || 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(counts).map(([product, quantity]) => ({
+    price: stripeConfig.priceIds[product],
+    quantity
+  })).filter(line => line.price && line.quantity > 0);
+}
+
+function showStripeStatus(message) {
+  if (!stripeStatusMessage) return;
+  stripeStatusMessage.textContent = message;
+}
+
+function handleStripeCheckout() {
+  if (!isStripeConfigured()) {
+    showStripeStatus('Stripe is not configured yet. Add your publishable key and price IDs in site.js.');
+    return;
+  }
+
+  const lineItems = getStripeLineItems();
+  if (!lineItems.length) {
+    showStripeStatus('Add at least one item to your order before paying with Stripe.');
+    return;
+  }
+
+  const stripe = Stripe(stripeConfig.publishableKey);
+  stripe.redirectToCheckout({
+    lineItems,
+    mode: 'payment',
+    successUrl: stripeConfig.successUrl,
+    cancelUrl: stripeConfig.cancelUrl
+  }).then(result => {
+    if (result.error) {
+      showStripeStatus(result.error.message || 'Stripe checkout failed.');
+    }
+  });
+}
+
 function addCurrentOrderItem() {
   const order = serializeCustomOrder();
   if (!order) return false;
@@ -477,6 +538,13 @@ function renderCartList() {
 }
 
 function updateCheckoutSummary() {
+  if (new URLSearchParams(window.location.search).get('payment') === 'success') {
+    if (checkoutMessage) {
+      checkoutMessage.textContent = 'Payment successful! Thank you for your order.';
+    }
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
   const items = loadOrderItems();
   if (!summaryProduct || !summaryColors || !summaryProductPrice || !summaryShipping || !summaryTotal || !checkoutItemList || !singleSummaryItem || !summaryExtraLine || !summaryExtra) return;
 
@@ -731,6 +799,10 @@ if (checkoutItemList) {
 
 if (checkoutForm) {
   checkoutForm.addEventListener('submit', handleFormSubmit);
+}
+
+if (stripeCheckoutButton) {
+  stripeCheckoutButton.addEventListener('click', handleStripeCheckout);
 }
 
 if (sendReceiptButton) {

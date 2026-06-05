@@ -154,6 +154,14 @@ header {
   box-shadow: 0 14px 28px rgba(194, 125, 82, 0.22);
 }
 
+.button.secondary {
+  background: #6772e5;
+}
+
+.button.secondary:hover {
+  box-shadow: 0 14px 28px rgba(103, 114, 229, 0.22);
+}
+
 .checkout-hero {
   background: linear-gradient(135deg, #fff3ea 0%, #f7e5d9 100%);
   text-align: center;

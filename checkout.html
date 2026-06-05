@@ -70,13 +70,16 @@
                         </select>
                     </div>
 
-                    <label class="remember-me">
-                        <input type="checkbox" id="remember-details" name="rememberMe">
-                        Remember my billing details for next time
-                    </label>
-
-                    <button type="submit" class="button">Place Order</button>
+                    <div class="checkout-actions" style="display:flex; flex-direction:column; gap:1rem;">
+                        <label class="remember-me" style="display:flex; align-items:center; gap:0.5rem;">
+                            <input type="checkbox" id="remember-details" name="rememberMe">
+                            Remember my billing details for next time
+                        </label>
+                        <button type="submit" class="button">Place Order</button>
+                        <button type="button" id="stripe-checkout-button" class="button secondary">Checkout with Stripe</button>
+                    </div>
                     <div class="form-message" id="checkout-form-message" aria-live="polite"></div>
+                    <div id="stripe-status-message" class="form-message" aria-live="polite"></div>
                     <div id="receipt-summary" class="receipt-summary" style="display:none; margin-top:1rem;"></div>
                     <button type="button" id="send-receipt-button" class="button secondary" style="display:none; margin-top:0.75rem;">Open receipt in email</button>
                 </form>
@@ -118,6 +121,7 @@
         <p>© 2026 Stitched By Trae. Handmade with ❤️</p>
     </footer>
 
+    <script src="https://js.stripe.com/v3/"></script>
     <script src="site.js"></script>
 </body>
 </html>
