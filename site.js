@@ -509,6 +509,31 @@ function getMeasurementText(order) {
   return '';
 }
 
+function hasBucketHatOrder(items) {
+  return items.some(item => item.product === 'Bucket Hat' || item.product === 'Ruffle Bucket Hat');
+}
+
+function updateShippingVisibility() {
+  if (!shippingSelect) return;
+  const shippingBlock = shippingSelect.closest('.checkout-block');
+  const items = loadOrderItems();
+  const showShipping = items.length > 0 && !hasBucketHatOrder(items);
+
+  if (shippingBlock) {
+    shippingBlock.style.display = showShipping ? '' : 'none';
+  }
+
+  if (showShipping) {
+    shippingSelect.required = true;
+    if (!shippingSelect.value) {
+      shippingSelect.value = 'standard';
+    }
+  } else {
+    shippingSelect.required = false;
+    shippingSelect.value = 'standard';
+  }
+}
+
 function getExtraColorNoteText() {
   if (!extraColorNote || !bucketHatStyleSelect) return '';
   const product = getSelectedProduct();
@@ -587,6 +612,9 @@ function updateCheckoutSummary() {
   if (!summaryProduct || !summaryColors || !summaryProductPrice || !summaryShipping || !summaryTotal || !checkoutItemList || !singleSummaryItem || !summaryExtraLine || !summaryExtra) return;
 
   if (!items.length) {
+    if (shippingSelect) {
+      updateShippingVisibility();
+    }
     singleSummaryItem.style.display = 'flex';
     checkoutItemList.style.display = 'none';
     summaryExtraLine.style.display = 'none';
@@ -596,6 +624,10 @@ function updateCheckoutSummary() {
     summaryShipping.textContent = '$0';
     summaryTotal.textContent = '$0';
     return;
+  }
+
+  if (shippingSelect) {
+    updateShippingVisibility();
   }
 
   const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
