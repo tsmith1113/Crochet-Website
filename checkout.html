@@ -70,8 +70,15 @@
                         </select>
                     </div>
 
+                    <label class="remember-me">
+                        <input type="checkbox" id="remember-details" name="rememberMe">
+                        Remember my billing details for next time
+                    </label>
+
                     <button type="submit" class="button">Place Order</button>
                     <div class="form-message" id="checkout-form-message" aria-live="polite"></div>
+                    <div id="receipt-summary" class="receipt-summary" style="display:none; margin-top:1rem;"></div>
+                    <button type="button" id="send-receipt-button" class="button secondary" style="display:none; margin-top:0.75rem;">Open receipt in email</button>
                 </form>
             </div>
 

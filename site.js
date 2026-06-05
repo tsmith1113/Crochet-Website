@@ -8,7 +8,7 @@
 ];
 
 const basePrices = {
-  Beanie: 25,
+  'Bucket Hat': 25,
   'Ruffle Bucket Hat': 35,
   Scrunchie: 8
 };
@@ -43,14 +43,22 @@ const bucketHatStyleSelect = document.getElementById('bucket-hat-color-style');
 const allOneColorControl = document.getElementById('all-one-color-control');
 const allOneColorCheckbox = document.getElementById('all-one-color-checkbox');
 const extraColorNote = document.getElementById('extra-color-note');
+const measurementSection = document.querySelector('.measurement-section');
+const headCircumferenceInput = document.getElementById('head-circumference-input');
+const sizeSelectInput = document.getElementById('size-select');
+const rememberDetailsCheckbox = document.getElementById('remember-details');
+const receiptSummary = document.getElementById('receipt-summary');
+const sendReceiptButton = document.getElementById('send-receipt-button');
 const addToOrderButton = document.getElementById('add-to-order-button');
 const orderCartMessage = document.getElementById('order-cart-message');
 const orderCartList = document.getElementById('order-cart-list');
 const orderItemsKey = 'stitchedByTraeOrderItems';
+const billingDetailsKey = 'stitchedByTraeBillingDetails';
+const rememberDetailsKey = 'stitchedByTraeRememberDetails';
 
 function getProductColorLabels(product) {
   switch (product) {
-    case 'Beanie':
+    case 'Bucket Hat':
       return ['Color'];
     case 'Scrunchie':
       return ['Primary Color', 'Accent Color'];
@@ -101,9 +109,37 @@ function getMeasurementValues() {
   return { headCircumference, size };
 }
 
+function updateMeasurementInputs() {
+  if (!headCircumferenceInput || !sizeSelectInput) return;
+  const hasMeasurement = headCircumferenceInput.value.trim().length > 0;
+  const hasSize = sizeSelectInput.value.trim().length > 0;
+
+  if (hasMeasurement) {
+    sizeSelectInput.disabled = true;
+    if (sizeSelectInput.value) {
+      sizeSelectInput.value = '';
+    }
+  } else {
+    sizeSelectInput.disabled = false;
+  }
+
+  if (hasSize) {
+    headCircumferenceInput.disabled = true;
+    if (headCircumferenceInput.value) {
+      headCircumferenceInput.value = '';
+    }
+  } else {
+    headCircumferenceInput.disabled = false;
+  }
+}
+
 function getSelectedProduct() {
   if (!customForm) return '';
   return customForm.querySelector('select[name="product"]').value;
+}
+
+function requiresMeasurements(product) {
+  return product === 'Bucket Hat' || product === 'Ruffle Bucket Hat';
 }
 
 function validateCustomOrder() {
@@ -121,9 +157,16 @@ function validateCustomOrder() {
     return false;
   }
 
-  if (!headCircumference && !size) {
-    if (customMessage) customMessage.textContent = 'Please enter your head measurement or select a size.';
-    return false;
+  if (requiresMeasurements(product)) {
+    if (!headCircumference && !size) {
+      if (customMessage) customMessage.textContent = 'Please enter your head measurement or select a size.';
+      return false;
+    }
+
+    if (headCircumference && Number.isNaN(Number(headCircumference))) {
+      if (customMessage) customMessage.textContent = 'Please enter a valid number for your head circumference.';
+      return false;
+    }
   }
 
   if (headCircumference && Number.isNaN(Number(headCircumference))) {
@@ -211,6 +254,21 @@ function updateColorPickers() {
     }
   }
 
+  if (measurementSection) {
+    if (requiresMeasurements(product)) {
+      measurementSection.style.display = 'block';
+    } else {
+      measurementSection.style.display = 'none';
+      if (headCircumferenceInput) {
+        headCircumferenceInput.value = '';
+      }
+      if (sizeSelectInput) {
+        sizeSelectInput.value = '';
+      }
+      updateMeasurementInputs();
+    }
+  }
+
   if (allOneColorControl) {
     if (supportsAllOneColor(product)) {
       if (colorPickers.firstElementChild) {
@@ -269,6 +327,24 @@ function saveOrderItems(items) {
   window.localStorage.setItem(orderItemsKey, JSON.stringify(items));
 }
 
+function saveBillingDetails() {
+  if (!checkoutForm || !rememberDetailsCheckbox) return;
+  const data = {};
+  ['fullName', 'email', 'street', 'city', 'state', 'postal'].forEach(name => {
+    const field = checkoutForm.querySelector(`[name="${name}"]`);
+    if (field) {
+      data[name] = field.value.trim();
+    }
+  });
+  window.localStorage.setItem(billingDetailsKey, JSON.stringify(data));
+  window.localStorage.setItem(rememberDetailsKey, 'true');
+}
+
+function clearBillingDetails() {
+  window.localStorage.removeItem(billingDetailsKey);
+  window.localStorage.removeItem(rememberDetailsKey);
+}
+
 function addCurrentOrderItem() {
   const order = serializeCustomOrder();
   if (!order) return false;
@@ -291,6 +367,25 @@ function loadCustomOrder() {
     return stored ? JSON.parse(stored) : null;
   } catch {
     return null;
+  }
+}
+
+function loadSavedBillingDetails() {
+  if (!checkoutForm || !rememberDetailsCheckbox) return;
+  try {
+    const saved = window.localStorage.getItem(billingDetailsKey);
+    const remember = window.localStorage.getItem(rememberDetailsKey) === 'true';
+    if (!saved || !remember) return;
+    const data = JSON.parse(saved);
+    ['fullName', 'email', 'street', 'city', 'state', 'postal'].forEach(name => {
+      const field = checkoutForm.querySelector(`[name="${name}"]`);
+      if (field && data[name]) {
+        field.value = data[name];
+      }
+    });
+    rememberDetailsCheckbox.checked = true;
+  } catch {
+    // ignore invalid saved data
   }
 }
 
@@ -458,15 +553,74 @@ function updateCheckoutSummary() {
   summaryTotal.textContent = `$${total}`;
 }
 
+function buildReceiptPreview(form) {
+  if (!checkoutForm) return '';
+  const emailField = form.querySelector('input[name="email"]');
+  const email = emailField ? emailField.value.trim() : '';
+  const items = loadOrderItems();
+  const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
+  const shippingCost = getShippingPrice(shippingKey);
+  const subtotal = items.reduce((sum, item) => {
+    return sum + getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
+  }, 0);
+  const total = subtotal + shippingCost;
+  const lines = items.map((item, index) => {
+    const colorText = item.allOneColor && item.colors.length
+      ? `All one color: ${item.colors[0]}`
+      : `${item.colors.join(', ')}`;
+    const measurementText = getMeasurementText(item);
+    const meta = measurementText ? `${colorText} • ${measurementText}` : colorText;
+    const price = getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
+    return `${index + 1}. ${item.product} (${meta}) — $${price}`;
+  });
+  return `Receipt will be sent to ${email || 'your email address'}.
+
+${lines.join('\n')}
+
+Shipping: $${shippingCost}
+Total: $${total}`;
+}
+
+function openReceiptEmail(form) {
+  if (!form) return;
+  const emailField = form.querySelector('input[name="email"]');
+  const email = emailField ? emailField.value.trim() : '';
+  if (!email) {
+    if (checkoutMessage) {
+      checkoutMessage.textContent = 'Please add an email address before opening the receipt email.';
+    }
+    return;
+  }
+  const receiptText = buildReceiptPreview(form);
+  const subject = encodeURIComponent('Stitched By Trae Purchase Receipt');
+  const body = encodeURIComponent(receiptText);
+  window.location.href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
+}
+
 function handleFormSubmit(event) {
   event.preventDefault();
 
   const form = event.target;
   if (form.id === 'checkout-form') {
-    if (checkoutMessage) {
-      checkoutMessage.textContent = 'Thanks! Your checkout request is complete.';
+    if (rememberDetailsCheckbox && rememberDetailsCheckbox.checked) {
+      saveBillingDetails();
+    } else {
+      clearBillingDetails();
     }
-    form.reset();
+
+    if (checkoutMessage) {
+      checkoutMessage.textContent = 'Order placed! A confirmation receipt preview is shown below.';
+    }
+
+    if (receiptSummary) {
+      receiptSummary.style.display = 'block';
+      receiptSummary.textContent = buildReceiptPreview(form);
+    }
+
+    if (sendReceiptButton) {
+      sendReceiptButton.style.display = 'inline-block';
+    }
+
     if (shippingSelect) shippingSelect.value = '';
     updateCheckoutSummary();
     setTimeout(() => {
@@ -547,6 +701,14 @@ if (allOneColorCheckbox) {
   });
 }
 
+if (headCircumferenceInput) {
+  headCircumferenceInput.addEventListener('input', updateMeasurementInputs);
+}
+
+if (sizeSelectInput) {
+  sizeSelectInput.addEventListener('change', updateMeasurementInputs);
+}
+
 function handleDeleteClick(event) {
   const button = event.target.closest('.delete-order-item');
   if (!button) return;
@@ -571,6 +733,14 @@ if (checkoutForm) {
   checkoutForm.addEventListener('submit', handleFormSubmit);
 }
 
+if (sendReceiptButton) {
+  sendReceiptButton.addEventListener('click', () => {
+    if (checkoutForm) {
+      openReceiptEmail(checkoutForm);
+    }
+  });
+}
+
 if (colorPickers) {
   colorPickers.addEventListener('change', event => {
     if (event.target.classList.contains('color-select')) {
@@ -585,6 +755,8 @@ if (shippingSelect) {
 
 window.addEventListener('DOMContentLoaded', () => {
   updateColorPickers();
+  updateMeasurementInputs();
   renderCartList();
   updateCheckoutSummary();
+  loadSavedBillingDetails();
 });
