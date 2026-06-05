@@ -365,7 +365,7 @@ function buildCheckoutPayload(form) {
   const fullNameField = form.querySelector('input[name="fullName"]');
   const streetField = form.querySelector('input[name="street"]');
   const cityField = form.querySelector('input[name="city"]');
-  const stateField = form.querySelector('input[name="state"]');
+  const stateField = form.querySelector('select[name="state"]');
   const postalField = form.querySelector('input[name="postal"]');
   const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
   const loadedItems = loadOrderItems();
