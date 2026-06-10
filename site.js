@@ -162,13 +162,16 @@ function getProductColorLabels(product) {
   }
 
   if (rows === 2) {
-    return ['Row 1 Color', 'Row 2 Color'];
+    return [
+      'Outer Row Color',
+      'Inner Row Color'
+    ];
   }
 
   return [
-    'Row 1 Color',
-    'Row 2 Color',
-    'Row 3 Color'
+    'Outer Row Color',
+    'Middle Row Color',
+    'Inner Row Color'
   ];
 }
     case 'Ruffle Bucket Hat':
