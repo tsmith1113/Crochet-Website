@@ -1,4 +1,4 @@
-const apiBase = 'http://localhost:3000';
+const apiBase = '';
 const ordersBody = document.getElementById('orders-table-body');
 const adminMessage = document.getElementById('admin-message');
 

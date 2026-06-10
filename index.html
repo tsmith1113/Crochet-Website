@@ -161,42 +161,36 @@
                     <option value="Ruffle Bucket Hat">Ruffle Bucket Hat</option>
                     <option value="Scrunchie">Scrunchie</option>
                 </select>
-                <div id="bucket-hat-style-control" class="bucket-hat-style-control" style="display:none;">
-                    <select id="bucket-hat-color-style" name="bucketHatColorStyle">
-                        <option value="main-rest">Main Color + Rest of Hat</option>
-                        <option value="main-outer-top">Main + Outer + Top Color</option>
-                    </select>
-                </div>
-                <div id="color-pickers" class="color-pickers">
-                    <label class="color-select-group">
-                        <span>Main Color</span>
-                        <select class="color-select" name="color1" required>
-                            <option value="">Select Color</option>
-                            <option>Blush Pink</option>
-                            <option>Soft Cream</option>
-                            <option>Sage Green</option>
-                            <option>Mustard Yellow</option>
-                            <option>Lavender</option>
-                            <option>Charcoal Gray</option>
-                        </select>
-                    </label>
-                </div>
-                <div id="all-one-color-control" class="all-one-color-control" style="display:none; margin-top: 1rem;">
-                    <label>
-                        <input type="checkbox" id="all-one-color-checkbox">
-                        All one color
-                    </label>
-                </div>
                 <div id="scrunchie-row-count-control" class="row-count-control" style="display:none; margin-top:1rem;">
-                    <label>
-                        <span>Scrunchie Rows</span>
-                        <select id="scrunchie-row-count" name="rowCount">
-                            <option value="1">1 row</option>
-                            <option value="2">2 rows</option>
-                            <option value="3">3 rows</option>
-                        </select>
-                    </label>
-                    <p class="color-note" style="margin-top:0.5rem;">Choose up to 3 rows for your scrunchie.</p>
+    <label>
+        <span>Scrunchie Rows</span>
+        <select id="scrunchie-row-count" name="rowCount">
+            <option value="1">1 Row</option>
+            <option value="2">2 Rows</option>
+            <option value="3">3 Rows</option>
+        </select>
+    </label>
+    <p class="color-note" style="margin-top:0.5rem;">
+        Choose up to 3 rows for your scrunchie.
+    </p>
+</div>
+
+<div id="bucket-hat-style-control" class="bucket-hat-style-control" style="display:none;">
+    <select id="bucket-hat-color-style" name="bucketHatColorStyle">
+        <option value="main-rest">Main Color + Rest of Hat</option>
+        <option value="main-outer-top">Main + Outer + Top Color</option>
+    </select>
+</div>
+
+<div id="color-pickers" class="color-pickers"></div>
+
+<div id="all-one-color-control" class="all-one-color-control" style="display:none; margin-top:1rem;">
+    <label>
+        <input type="checkbox" id="all-one-color-checkbox">
+        All one color
+    </label>
+</div>
+                
                 </div>
                 <p id="extra-color-note" class="color-note" style="display:none;">Third color adds $2.</p>
                 <div class="measurement-section">
