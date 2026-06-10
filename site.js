@@ -33,8 +33,7 @@
   'Hot Pink',
   'Rose Pink',
   'Blush Pink',
-  'Peach',
-  'Custom Color Request'
+  'Peach'
 ];
 
 const basePrices = {
