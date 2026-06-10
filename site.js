@@ -90,7 +90,7 @@ const orderItemsKey = 'stitchedByTraeOrderItems';
 const orderSessionKey = 'stitchedByTraeOrderSession';
 
 const stripeConfig = {
-  publishableKey: "pk_test_51Tf0UnK7MUFGeMDDJsC7iop9mkqYBnlNwOk4SV5eZRulyGMJB8h1kkK8IqAgW3Ey15hqLpYkHxOrTCF91hWt7Ftd00NVymVX8U",
+  publishableKey: "pk_live_51Tf0UnK7MUFGeMDDT8Ur5bfwpqQfOkbm3jUNVZQePGDMhmSSHPegLGgeD5EPspNhHIhVkdEcRZ1ns67mMrLXG5bK006PthAf6m",
 
   priceIds: {
     "Bucket Hat": "price_1Tf0rJK7MUFGeMDD1U4BIDsU",
