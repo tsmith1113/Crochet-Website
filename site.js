@@ -153,8 +153,23 @@ function getProductColorLabels(product) {
     case 'Bucket Hat':
     case 'Beanie':
       return ['Color'];
-    case 'Scrunchie':
-      return ['Primary Color', 'Accent Color'];
+    case 'Scrunchie': {
+  const rows = Number(scrunchieRowCountSelect?.value || 1);
+
+  if (rows === 1) {
+    return ['Row Color'];
+  }
+
+  if (rows === 2) {
+    return ['Row 1 Color', 'Row 2 Color'];
+  }
+
+  return [
+    'Row 1 Color',
+    'Row 2 Color',
+    'Row 3 Color'
+  ];
+}
     case 'Ruffle Bucket Hat':
       if (bucketHatStyleSelect) {
         if (bucketHatStyleSelect.value === 'main-rest') {
@@ -978,6 +993,12 @@ if (addToOrderButton) {
 
 if (productSelect) {
   productSelect.addEventListener('change', updateColorPickers);
+}
+
+if (scrunchieRowCountSelect) {
+  scrunchieRowCountSelect.addEventListener('change', () => {
+    updateColorPickers();
+  });
 }
 
 if (bucketHatStyleSelect) {
