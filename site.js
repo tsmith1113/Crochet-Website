@@ -93,9 +93,10 @@ const stripeConfig = {
   publishableKey: "pk_test_51Tf0UnK7MUFGeMDDJsC7iop9mkqYBnlNwOk4SV5eZRulyGMJB8h1kkK8IqAgW3Ey15hqLpYkHxOrTCF91hWt7Ftd00NVymVX8U",
 
   priceIds: {
-    "Bucket Hat": "price_1Tf0vFK7MUFGeMDDILQ7sIUK",
-    "Ruffle Bucket Hat": "price_1Tf0xwK7MUFGeMDDok4jSvNv",
-    "Scrunchie": "price_1Tf0whK7MUFGeMDDYTbUc0iB"
+    "Bucket Hat": "price_1Tf0rJK7MUFGeMDD1U4BIDsU",
+    "Ruffle Bucket Hat": "price_1Tf0rJK7MUFGeMDDuwZ8kjHG",
+    "Beanie": "price_1Tf0rJK7MUFGeMDDFHsxUiZu",
+    "Scrunchie": "price_1Tf0rJK7MUFGeMDDXDu3iMZr"
   },
 
   successUrl: window.location.origin + "/checkout.html?payment=success",
