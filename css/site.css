@@ -303,6 +303,16 @@ header {
   color: var(--primary);
 }
 
+.checkout-policy {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  max-width: 800px;
+  margin: 0 auto 2rem;
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 0.98rem;
+  line-height: 1.7;
+}
+
 @media (max-width: 900px) {
   .checkout-layout {
     grid-template-columns: 1fr;
@@ -607,4 +617,108 @@ footer {
   .custom-form {
     padding: 0 0.5rem;
   }
+}
+/* Product Carousel */
+
+.carousel {
+  position: relative;
+  overflow: hidden;
+}
+
+.carousel img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  transition: opacity 0.3s ease;
+}
+
+.carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  z-index: 5;
+}
+
+.carousel-btn:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.carousel-btn.prev {
+  left: 10px;
+}
+
+.carousel-btn.next {
+  right: 10px;
+}
+
+.features {
+  background: #fff;
+  padding: 2rem 1rem;
+}
+
+.features-grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  text-align: center;
+}
+
+.features-grid div {
+  background: var(--primary-soft);
+  padding: 1rem;
+  border-radius: 16px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.product-note {
+  margin: 0 1rem 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* Policies Section */
+
+.policies {
+    background: #fff;
+}
+
+.policy-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.policy-card {
+    background: var(--surface);
+    padding: 1.5rem;
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+}
+
+.policy-card h3 {
+    margin-top: 0;
+    color: var(--primary);
+}
+
+.policy-card p {
+    margin-bottom: 0;
+    color: var(--muted);
 }

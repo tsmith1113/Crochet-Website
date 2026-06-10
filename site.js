@@ -8,6 +8,7 @@
 ];
 
 const basePrices = {
+  Beanie: 25,
   'Bucket Hat': 25,
   'Ruffle Bucket Hat': 35,
   Scrunchie: 8
@@ -44,6 +45,8 @@ const bucketHatStyleControl = document.getElementById('bucket-hat-style-control'
 const bucketHatStyleSelect = document.getElementById('bucket-hat-color-style');
 const allOneColorControl = document.getElementById('all-one-color-control');
 const allOneColorCheckbox = document.getElementById('all-one-color-checkbox');
+const scrunchieRowCountControl = document.getElementById('scrunchie-row-count-control');
+const scrunchieRowCountSelect = document.getElementById('scrunchie-row-count');
 const extraColorNote = document.getElementById('extra-color-note');
 const measurementSection = document.querySelector('.measurement-section');
 const headCircumferenceInput = document.getElementById('head-circumference-input');
@@ -55,24 +58,71 @@ const addToOrderButton = document.getElementById('add-to-order-button');
 const orderCartMessage = document.getElementById('order-cart-message');
 const orderCartList = document.getElementById('order-cart-list');
 const orderItemsKey = 'stitchedByTraeOrderItems';
+const orderSessionKey = 'stitchedByTraeOrderSession';
 
 const stripeConfig = {
-  publishableKey: 'pk_test_1234567890abcdef',
+  publishableKey: "pk_test_51Tf0UnK7MUFGeMDDJsC7iop9mkqYBnlNwOk4SV5eZRulyGMJB8h1kkK8IqAgW3Ey15hqLpYkHxOrTCF91hWt7Ftd00NVymVX8U",
+
   priceIds: {
-    'Bucket Hat': 'price_1A2B3C4D5E6F7G8H',
-    'Ruffle Bucket Hat': 'price_1H8G7F6E5D4C3B2A',
-    Scrunchie: 'price_1Z9Y8X7W6V5U4T3S'
+    "Bucket Hat": "price_1Tf0vFK7MUFGeMDDILQ7sIUK",
+    "Ruffle Bucket Hat": "price_1Tf0xwK7MUFGeMDDok4jSvNv",
+    "Scrunchie": "price_1Tf0whK7MUFGeMDDYTbUc0iB"
   },
-  successUrl: window.location.origin + '/checkout.html?payment=success',
-  cancelUrl: window.location.origin + '/checkout.html?payment=cancel'
+
+  successUrl: window.location.origin + "/checkout.html?payment=success",
+  cancelUrl: window.location.origin + "/checkout.html?payment=cancel"
 };
 
 const billingDetailsKey = 'stitchedByTraeBillingDetails';
 const rememberDetailsKey = 'stitchedByTraeRememberDetails';
 
+const productImageSets = {
+  bucket: [
+    'Pictures/Beanie Front.JPG',
+    'Pictures/Beanie Back.JPG',
+    'Pictures/Black Beanie Middle.JPG',
+    'Pictures/Black Beanie Side.JPG'
+  ],
+  buckethat: [
+    'Pictures/Brown Bucket Hat Front.JPG',
+    'Pictures/Brown Bucket Hat Back.JPG',
+    'Pictures/Brown Side.JPG'
+  ],
+  ruffle: [
+    'Pictures/Red Hat Front .JPG',
+    'Pictures/Red Hat Head Down.JPG',
+    'Pictures/Pink Hat Front View.JPG',
+    'Pictures/Pink Bucket Hat Back C.JPG'
+  ],
+  scrunchie: [
+    'Pictures/Orange Scrunchie.JPG',
+    'Pictures/Purple Scrunchie.JPG',
+    'Pictures/Tan Scrunchie.JPG'
+  ]
+};
+
+const imageIndexes = {
+  bucket: 0,
+  buckethat: 0,
+  ruffle: 0,
+  scrunchie: 0
+};
+
+function changeSlide(productKey, direction) {
+  const imageSet = productImageSets[productKey];
+  if (!imageSet) return;
+
+  const imageElement = document.getElementById(`${productKey}-image`);
+  if (!imageElement) return;
+
+  imageIndexes[productKey] = (imageIndexes[productKey] + direction + imageSet.length) % imageSet.length;
+  imageElement.src = imageSet[imageIndexes[productKey]];
+}
+
 function getProductColorLabels(product) {
   switch (product) {
     case 'Bucket Hat':
+    case 'Beanie':
       return ['Color'];
     case 'Scrunchie':
       return ['Primary Color', 'Accent Color'];
@@ -153,7 +203,7 @@ function getSelectedProduct() {
 }
 
 function requiresMeasurements(product) {
-  return product === 'Bucket Hat' || product === 'Ruffle Bucket Hat';
+  return product === 'Bucket Hat' || product === 'Beanie' || product === 'Ruffle Bucket Hat';
 }
 
 function validateCustomOrder() {
@@ -214,6 +264,20 @@ function updateAllOneColorState() {
       select.value = '';
     }
   });
+}
+
+function updateScrunchieRowCountControl() {
+  if (!scrunchieRowCountControl || !scrunchieRowCountSelect) return;
+  const product = getSelectedProduct();
+  if (product === 'Scrunchie') {
+    scrunchieRowCountControl.style.display = 'block';
+    if (!scrunchieRowCountSelect.value) {
+      scrunchieRowCountSelect.value = '1';
+    }
+  } else {
+    scrunchieRowCountControl.style.display = 'none';
+    scrunchieRowCountSelect.value = '1';
+  }
 }
 
 function updateDisabledOptions() {
@@ -297,6 +361,7 @@ function updateColorPickers() {
     }
   }
 
+  updateScrunchieRowCountControl();
   updateDisabledOptions();
   updateThirdColorNote();
 }
@@ -309,6 +374,7 @@ function serializeCustomOrder() {
   const { headCircumference, size } = getMeasurementValues();
   const allOneColor = allOneColorCheckbox && allOneColorCheckbox.checked;
   const bucketHatStyle = bucketHatStyleSelect ? bucketHatStyleSelect.value : '';
+  const rowCount = scrunchieRowCountSelect ? Number(scrunchieRowCountSelect.value || '1') : 1;
 
   if (!product || !selectedColors.length) return null;
 
@@ -324,7 +390,8 @@ function serializeCustomOrder() {
     headCircumference,
     size,
     allOneColor: Boolean(allOneColor),
-    bucketHatStyle
+    bucketHatStyle,
+    rowCount
   };
 }
 
@@ -450,7 +517,23 @@ function addCurrentOrderItem() {
   const items = loadOrderItems();
   items.push(order);
   saveOrderItems(items);
+  if (window.sessionStorage) {
+    window.sessionStorage.setItem(orderSessionKey, 'true');
+  }
   return true;
+}
+
+function clearOrderSession() {
+  if (window.sessionStorage) {
+    window.sessionStorage.removeItem(orderSessionKey);
+  }
+}
+
+function clearStaleOrderItems() {
+  if (!window.sessionStorage) return;
+  if (!window.sessionStorage.getItem(orderSessionKey)) {
+    saveOrderItems([]);
+  }
 }
 
 function storeCustomOrder() {
@@ -509,8 +592,27 @@ function getMeasurementText(order) {
   return '';
 }
 
+function getOrderMetaText(order) {
+  if (!order) return '';
+  const colorText = order.allOneColor && order.colors.length
+    ? `All one color: ${order.colors[0]}`
+    : `${order.colors.join(', ')}`;
+  const parts = [colorText];
+
+  if (order.product === 'Scrunchie') {
+    parts.push(`Rows: ${order.rowCount || 1}`);
+  }
+
+  const measurementText = getMeasurementText(order);
+  if (measurementText) {
+    parts.push(measurementText);
+  }
+
+  return parts.filter(Boolean).join(' • ');
+}
+
 function hasBucketHatOrder(items) {
-  return items.some(item => item.product === 'Bucket Hat' || item.product === 'Ruffle Bucket Hat');
+  return items.some(item => item.product === 'Bucket Hat' || item.product === 'Beanie' || item.product === 'Ruffle Bucket Hat');
 }
 
 function updateShippingVisibility() {
@@ -580,16 +682,13 @@ function renderCartList() {
 
   orderCartMessage.textContent = `You have ${items.length} item${items.length === 1 ? '' : 's'} in your order.`;
   orderCartList.innerHTML = items.map((item, index) => {
-    const colorLabel = item.allOneColor && item.colors.length
-      ? `All one color: ${item.colors[0]}`
-      : item.colors.join(', ');
+    const itemMeta = getOrderMetaText(item);
     const itemPrice = getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
     return `
       <div class="cart-list-item">
         <div>
           <strong>${index + 1}. ${item.product}</strong>
-          <p>${colorLabel}</p>
-          ${getMeasurementText(item) ? `<p>${getMeasurementText(item)}</p>` : ''}
+          <p>${itemMeta}</p>
         </div>
         <div class="cart-list-actions">
           <span>$${itemPrice}</span>
@@ -649,21 +748,13 @@ function updateCheckoutSummary() {
     }
     const order = items[0];
     summaryProduct.textContent = `${order.product}`;
-    const colorText = order.allOneColor && order.colors.length
-      ? `All one color: ${order.colors[0]}`
-      : `${order.colors.join(', ')}`;
-    const measurementText = getMeasurementText(order);
-    summaryColors.textContent = measurementText ? `${colorText} • ${measurementText}` : colorText;
+    summaryColors.textContent = getOrderMetaText(order);
     summaryProductPrice.textContent = `$${subtotal}`;
   } else {
     singleSummaryItem.style.display = 'none';
     checkoutItemList.style.display = 'grid';
     checkoutItemList.innerHTML = items.map((order, index) => {
-      const colorText = order.allOneColor && order.colors.length
-        ? `All one color: ${order.colors[0]}`
-        : `${order.colors.join(', ')}`;
-      const measurementText = getMeasurementText(order);
-      const itemMeta = measurementText ? `${colorText} • ${measurementText}` : colorText;
+      const itemMeta = getOrderMetaText(order);
       const price = getProductPrice(order.product, order.colors.length, order.allOneColor, order.bucketHatStyle);
       return `
         <div class="checkout-item-row">
@@ -703,11 +794,7 @@ function buildReceiptPreview(form) {
   }, 0);
   const total = subtotal + shippingCost;
   const lines = items.map((item, index) => {
-    const colorText = item.allOneColor && item.colors.length
-      ? `All one color: ${item.colors[0]}`
-      : `${item.colors.join(', ')}`;
-    const measurementText = getMeasurementText(item);
-    const meta = measurementText ? `${colorText} • ${measurementText}` : colorText;
+    const meta = getOrderMetaText(item);
     const price = getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
     return `${index + 1}. ${item.product} (${meta}) — $${price}`;
   });
@@ -780,6 +867,9 @@ async function handleFormSubmit(event) {
     if (checkoutMessage) {
       checkoutMessage.textContent = `Order #${result.orderNumber} placed successfully! Confirmation email sent.`;
     }
+
+    saveOrderItems([]);
+    clearOrderSession();
 
     if (receiptSummary) {
       receiptSummary.style.display = 'block';
@@ -932,6 +1022,7 @@ if (shippingSelect) {
 window.addEventListener('DOMContentLoaded', () => {
   updateColorPickers();
   updateMeasurementInputs();
+  clearStaleOrderItems();
   renderCartList();
   updateCheckoutSummary();
   loadSavedBillingDetails();

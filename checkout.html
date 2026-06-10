@@ -107,6 +107,9 @@
                         <div style="display:flex; justify-content:center;">
                             <button type="button" id="stripe-checkout-button" class="button secondary">Checkout with Stripe</button>
                         </div>
+                        <p style="text-align:center; margin-top:1rem; color:#7b6a68;">
+                                        🔒 Secure payments powered by Stripe.
+                        </p>
                         <div id="stripe-status-message" class="form-message" aria-live="polite"></div>
                     </div>
 
@@ -118,6 +121,12 @@
                             <option value="standard">Standard - 5 to 7 days</option>
                             <option value="express">Express - 2 to 3 days</option>
                         </select>
+
+                        <p style="margin-top:1rem; color:#7b6a68;">
+                         🧶 All items are handmade to order. Please allow 3–5 business days for processing before shipment.
+                            </p><p style="margin-top: 1rem; color:#7b6a68";>
+
+                        </p>
                     </div>
 
                     <div class="checkout-actions" style="display:flex; flex-direction:column; gap:1rem;">
@@ -125,7 +134,6 @@
                             <input type="checkbox" id="remember-details" name="rememberMe">
                             Remember my billing details for next time
                         </label>
-                        <button type="submit" class="button">Place Order</button>
                     </div>
                     <div class="form-message" id="checkout-form-message" aria-live="polite"></div>
                     <div id="receipt-summary" class="receipt-summary" style="display:none; margin-top:1rem;"></div>
@@ -160,10 +168,23 @@
                         <strong id="summary-total">$0</strong>
                     </div>
                 </div>
-                <p class="checkout-help">Need help? Email us at <a href="mailto:stitchedbytrae@gmail.com">stitchedbytrae@gmail.com</a>.</p>
+                <p class="checkout-help">
+                    Need help? Email us at
+                 <a href="mailto:orders@stitchedbytrae.com">
+                    orders@stitchedbytrae.com
+                 </a>
+</p>
             </aside>
         </section>
     </main>
+
+    <section class="checkout-policy">
+  <p>
+    💜 Due to the handmade and custom nature of our products,
+    returns and exchanges are not accepted. If there is an issue
+    with your order, please contact us within 7 days of delivery.
+  </p>
+</section>
 
     <footer>
         <p>© 2026 Stitched By Trae. Handmade with ❤️</p>

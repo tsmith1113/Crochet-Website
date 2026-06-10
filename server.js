@@ -58,6 +58,26 @@ const stripe = new Stripe(stripeSecretKey, {
 });
 const resend = new Resend(resendApiKey);
 
+const WEEKLY_ORDER_LIMIT = Number(process.env.WEEKLY_ORDER_LIMIT || 20);
+
+function getWeekStartISOString() {
+  const now = new Date();
+  const day = now.getUTCDay();
+  const diff = (day + 6) % 7; // Monday as week start
+  const weekStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diff));
+  weekStart.setUTCHours(0, 0, 0, 0);
+  return weekStart.toISOString();
+}
+
+async function isWeeklyOrderLimitReached() {
+  if (!WEEKLY_ORDER_LIMIT || WEEKLY_ORDER_LIMIT <= 0) {
+    return false;
+  }
+  const weekStart = getWeekStartISOString();
+  const row = await getAsync('SELECT COUNT(*) AS count FROM orders WHERE created_at >= ?', [weekStart]);
+  return row?.count >= WEEKLY_ORDER_LIMIT;
+}
+
 const db = new sqlite3.Database('./orders.db', err => {
   if (err) {
     console.error('Unable to open orders.db', err);
@@ -163,7 +183,7 @@ function buildOrderConfirmationEmail(order) {
 
 async function sendOrderConfirmationEmail(order) {
   return resend.emails.send({
-    from: 'stitchedbytrae@gmail.com',
+    from: 'orders@stitchedbytrae.com',
     to: order.email,
     subject: `Order Confirmation #${order.order_number}`,
     html: buildOrderConfirmationEmail(order)
@@ -172,7 +192,7 @@ async function sendOrderConfirmationEmail(order) {
 
 async function sendShippingEmail(order, trackingNumber) {
   return resend.emails.send({
-    from: 'stitchedbytrae@gmail.com',
+    from: 'orders@stitchedbytrae.com',
     to: order.email,
     subject: `📦 Your order #${order.order_number} has shipped!`,
     html: `
@@ -211,6 +231,10 @@ app.post('/orders', async (req, res) => {
 
     if (!email || !items?.length) {
       return res.status(400).json({ error: 'Email and order items are required.' });
+    }
+
+    if (await isWeeklyOrderLimitReached()) {
+      return res.status(429).json({ error: 'Weekly order limit reached. Please try again next week.' });
     }
 
     const orderNumber = createOrderNumber();
@@ -284,6 +308,10 @@ app.post('/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: 'Email, order items, and Stripe line items are required.' });
     }
 
+    if (await isWeeklyOrderLimitReached()) {
+      return res.status(429).json({ error: 'Weekly order limit reached. Please try again next week.' });
+    }
+
     if (!stripeSecretKey) {
       return res.status(500).json({ error: 'Stripe secret key is not configured.' });
     }
@@ -322,7 +350,7 @@ app.post('/create-checkout-session', async (req, res) => {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${origin}/checkout.html?payment=success`,
+      success_url: `${origin}/success.html`,
       cancel_url: `${origin}/checkout.html?payment=cancel`,
       customer_email: email,
       metadata: {
@@ -366,6 +394,6 @@ app.post('/orders/:id/ship', async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log(`Server running on http://localhost:${process.env.PORT || 3000}`);
+app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
+  console.log(`Server running on port ${process.env.PORT || 3000}`);
 });

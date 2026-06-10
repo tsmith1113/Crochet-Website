@@ -34,35 +34,121 @@
         <section id="home" class="hero">
             <div class="hero-content">
                 <h2>Handmade Crochet Creations</h2>
-                <p>Bucket Hats • Ruffle Bucket Hats • Scrunchies</p>
+                <p>Beanies • Ruffle Bucket Hats • Scrunchies</p>
                 <a class="button" href="#shop">Shop Now</a>
             </div>
         </section>
+
+        <section class="features">
+    <div class="features-grid">
+        <div>🧶 Handmade Crochet</div>
+        <div>💜 Loc-Friendly Styles</div>
+        <div>✨ Custom Colors Available</div>
+        <div>📦 Made To Order</div>
+    </div>
+</section>
 
         <section id="shop" class="products">
             <h2>Featured Products</h2>
             <div class="product-grid">
                 <div class="card">
-                    <img src="https://via.placeholder.com/400x300" alt="Bucket Hat">
-                    <h3>Crochet Bucket Hat</h3>
-                    <p class="price">$25</p>
-                </div>
+    <div class="carousel">
+        <button class="carousel-btn prev" onclick="changeSlide('bucket', -1)">❮</button>
+
+        <img id="bucket-image" src="Pictures/Beanie Front.JPG" alt="Beanie front view">
+
+        <button class="carousel-btn next" onclick="changeSlide('bucket', 1)">❯</button>
+    </div>
+
+    <h3>Cozy Beanie</h3>
+    <p class="price">$25</p>
+
+     <p class="product-note">
+        Lightweight, colorful bucket hats for everyday style and comfort.
+    </p>
+</div>
                 <div class="card">
-                    <img src="https://via.placeholder.com/400x300" alt="Bucket Hat">
-                    <h3>Ruffle Bucket Hat</h3>
-                    <p class="price">$35</p>
-                </div>
+    <div class="carousel">
+        <button class="carousel-btn prev" onclick="changeSlide('buckethat', -1)">❮</button>
+
+        <img id="buckethat-image" src="Pictures/Brown Bucket Hat Front.JPG" alt="Bucket hat front view">
+
+        <button class="carousel-btn next" onclick="changeSlide('buckethat', 1)">❯</button>
+    </div>
+
+    <h3>Bucket Hat</h3>
+    <p class="price">$25</p>
+
+    <p class="product-note">
+        Designed for locs, braids, curls, and all hair types.
+    </p>
+</div>
                 <div class="card">
-                    <img src="https://via.placeholder.com/400x300" alt="Scrunchie">
-                    <h3>Crochet Scrunchie</h3>
-                    <p class="price">$8</p>
-                </div>
+    <div class="carousel">
+        <button class="carousel-btn prev" onclick="changeSlide('ruffle', -1)">❮</button>
+
+        <img id="ruffle-image" src="Pictures/Red Hat Front .JPG" alt="Ruffle hat front view">
+
+        <button class="carousel-btn next" onclick="changeSlide('ruffle', 1)">❯</button>
+    </div>
+
+    <h3>Ruffle Bucket Hat</h3>
+    <p class="price">$35</p>
+    
+    <p class="product-note">
+        Designed for locs, braids, curls, and all hair types.
+    </p>
+</div>
+                <div class="card">
+    <div class="carousel">
+        <button class="carousel-btn prev" onclick="changeSlide('scrunchie', -1)">❮</button>
+
+        <img id="scrunchie-image" src="Pictures/Orange Scrunchie.JPG" alt="Orange scrunchie view">
+
+        <button class="carousel-btn next" onclick="changeSlide('scrunchie', 1)">❯</button>
+    </div>
+
+    <h3>Crochet Scrunchie</h3>
+    <p class="price">$8</p>
+</div>
             </div>
         </section>
 
         <section id="about" class="about">
             <h2>About Me</h2>
-            <p>Hi, I'm Tracie! Every item is handmade with care and creativity. What started as a hobby has grown into a passion for creating cozy, stylish crochet pieces that people love wearing.</p>
+            <p>
+  Hi, I'm Tracie, the creator behind Stitched By Trae! 🧶
+</p>
+
+<p>
+  What started as a creative hobby quickly grew into a passion for designing handmade crochet pieces that are both stylish and unique. Every item in my shop is carefully crafted with attention to detail, quality materials, and a love for creativity.
+</p>
+
+<p>
+  At Stitched By Trae, I believe handmade items tell a story. Whether you're purchasing a beanie, scrunchie, custom order, or another crochet creation, each piece is made with care and designed to help you express your personal style.
+</p>
+
+<p>
+  One thing that makes my beanies special is that they're designed with all hair types in mind. As someone who has locs myself, I understand the importance of finding accessories that fit comfortably without sacrificing style. Whether you have locs, braids, curls, natural hair, or straight hair, my beanies are created to be both fashionable and functional.
+</p>
+
+<p>
+  I love experimenting with colors, textures, and custom designs to bring your ideas to life and create pieces that feel uniquely yours.
+</p>
+
+<p>
+  And there's more to come! I'm excited to share that handmade crochet bonnets will be coming soon, giving you even more ways to protect and celebrate your hair in style.
+</p>
+
+<p>
+  Thank you for supporting my small business and allowing me to share my passion with you. Every order, share, and recommendation means the world to me and helps me continue doing what I love.
+</p>
+
+<p>
+  With love,<br>
+  <strong>Trae</strong><br>
+  Founder, Stitched By Trae
+</p>
         </section>
 
         <section id="custom" class="custom">
@@ -70,9 +156,10 @@
             <form class="custom-form" id="custom-form">
                 <select name="product" required>
                     <option value="">Select Product</option>
-                    <option>Bucket Hat</option>
-                    <option>Ruffle Bucket Hat</option>
-                    <option>Scrunchie</option>
+                    <option value="Beanie">Beanie</option>
+                    <option value="Bucket Hat">Bucket Hat</option>
+                    <option value="Ruffle Bucket Hat">Ruffle Bucket Hat</option>
+                    <option value="Scrunchie">Scrunchie</option>
                 </select>
                 <div id="bucket-hat-style-control" class="bucket-hat-style-control" style="display:none;">
                     <select id="bucket-hat-color-style" name="bucketHatColorStyle">
@@ -99,6 +186,17 @@
                         <input type="checkbox" id="all-one-color-checkbox">
                         All one color
                     </label>
+                </div>
+                <div id="scrunchie-row-count-control" class="row-count-control" style="display:none; margin-top:1rem;">
+                    <label>
+                        <span>Scrunchie Rows</span>
+                        <select id="scrunchie-row-count" name="rowCount">
+                            <option value="1">1 row</option>
+                            <option value="2">2 rows</option>
+                            <option value="3">3 rows</option>
+                        </select>
+                    </label>
+                    <p class="color-note" style="margin-top:0.5rem;">Choose up to 3 rows for your scrunchie.</p>
                 </div>
                 <p id="extra-color-note" class="color-note" style="display:none;">Third color adds $2.</p>
                 <div class="measurement-section">
@@ -130,6 +228,65 @@
                 <div id="order-cart-list" class="order-cart-list"></div>
             </form>
         </section>
+
+        <section class="coming-soon">
+    <h2>Coming Soon</h2>
+
+    <div class="product-grid">
+        <div class="card">
+            <h3>✨ Crochet Bonnets</h3>
+            <p>Protective styles designed with comfort and style in mind.</p>
+        </div>
+
+        <div class="card">
+            <h3>🎨 New Color Collections</h3>
+            <p>More color combinations and seasonal designs.</p>
+        </div>
+
+        <div class="card">
+            <h3>🧶 Custom Crochet Pieces</h3>
+            <p>More handmade creations and custom options.</p>
+        </div>
+    </div>
+</section>
+
+<section id="policies" class="policies">
+    <h2>Policies & Shipping Information</h2>
+
+    <div class="policy-container">
+
+        <div class="policy-card">
+            <h3>📦 Processing Time</h3>
+            <p>
+                Each item is handmade to order. Please allow 3-5 business days
+                for your order to be created before it is shipped. Processing
+                times may be slightly longer during holidays, sales, or periods
+                of high demand.
+            </p>
+        </div>
+
+        <div class="policy-card">
+            <h3>🚚 Shipping Policy</h3>
+            <p>
+                Orders are shipped through USPS. Once your order has been
+                shipped, you will receive a shipping confirmation email with
+                your tracking number. Delivery times vary based on your selected
+                shipping method and location.
+            </p>
+        </div>
+
+        <div class="policy-card">
+            <h3>💜 Return Policy</h3>
+            <p>
+                Due to the handmade and custom nature of our products, returns
+                and exchanges are not accepted. If there is an issue with your
+                order, please contact us within 7 days of delivery and we will
+                work with you to make it right.
+            </p>
+        </div>
+
+    </div>
+</section>
 
         <section id="contact" class="contact">
             <h2>Contact Me</h2>

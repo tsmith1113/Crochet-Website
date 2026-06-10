@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmed - Stitched By Trae</title>
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+<header>
+    <nav class="nav-bar">
+        <div class="nav-brand">
+            <span class="logo">🧶</span>
+            <h1>Stitched By Trae</h1>
+        </div>
+    </nav>
+</header>
+
+<main style="padding: 4rem 1rem;">
+    <section style="max-width: 700px; margin: auto; text-align: center;">
+        <h1>🎉 Thank You For Your Order!</h1>
+
+        <p>
+            Your payment was successful and your order has been received.
+        </p>
+
+        <p>
+            A confirmation email has been sent to the email address you provided.
+        </p>
+
+        <p>
+            We will send another email once your order has shipped with tracking information.
+        </p>
+
+        <div style="margin-top: 2rem;">
+            <a href="index.html" class="button" id="continue-shopping-button">
+                Continue Shopping
+            </a>
+        </div>
+    </section>
+</main>
+<script>
+  const continueButton = document.getElementById('continue-shopping-button');
+  if (continueButton) {
+    continueButton.addEventListener('click', () => {
+      localStorage.removeItem('stitchedByTraeOrderItems');
+      localStorage.removeItem('stitchedByTraeOrder');
+      sessionStorage.removeItem('stitchedByTraeOrderSession');
+    });
+  }
+</script>
+
+<footer>
+    <p>© 2026 Stitched By Trae. Handmade with ❤️</p>
+</footer>
+
+</body>
+</html>
