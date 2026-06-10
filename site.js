@@ -164,7 +164,7 @@ function getProductColorLabels(product) {
   if (rows === 2) {
     return [
       'Outer Row Color',
-      'Inner Row Color'
+      'Rest of Scrunchie Color'
     ];
   }
 
