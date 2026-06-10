@@ -535,7 +535,7 @@ async function handleStripeCheckout() {
     return;
   }
 
-  const response = await fetch('http://localhost:3000/create-checkout-session', {
+  const response = await fetch('/create-checkout-session', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -894,7 +894,7 @@ async function handleFormSubmit(event) {
   }
 
   try {
-    const response = await fetch('http://localhost:3000/orders', {
+    const response = await fetch('/orders', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
