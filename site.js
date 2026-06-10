@@ -291,7 +291,15 @@ function validateCustomOrder() {
 }
 
 function supportsAllOneColor(product) {
-  return product === 'Scrunchie' || product === 'Ruffle Bucket Hat';
+  if (product === 'Ruffle Bucket Hat') {
+    return true;
+  }
+
+  if (product === 'Scrunchie') {
+    return Number(scrunchieRowCountSelect?.value || 1) > 1;
+  }
+
+  return false;
 }
 
 function updateAllOneColorState() {
