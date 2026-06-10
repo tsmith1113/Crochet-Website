@@ -997,12 +997,12 @@ if (addToOrderButton) {
 
 if (productSelect) {
   productSelect.addEventListener('change', updateColorPickers);
-}
-
-if (scrunchieRowCountSelect) {
+  
+  if (scrunchieRowCountSelect) {
   scrunchieRowCountSelect.addEventListener('change', () => {
     updateColorPickers();
   });
+}
 }
 
 if (bucketHatStyleSelect) {
