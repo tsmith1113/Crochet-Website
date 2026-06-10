@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import Stripe from 'stripe';
 import { Resend } from 'resend';
+import sqlite3 from 'sqlite3';
 
 dotenv.config();
 
