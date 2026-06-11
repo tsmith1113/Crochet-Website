@@ -112,6 +112,35 @@ header {
   color: var(--primary);
 }
 
+.cart-nav-item {
+  position: relative;
+}
+
+.cart-nav-link {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  line-height: 1;
+  padding-right: 8px;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 .hero {
   min-height: 74vh;
   display: grid;
@@ -379,6 +408,12 @@ section h2 {
   font-weight: 700;
 }
 
+.coming-soon .card {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  justify-content: center;
+}
+
 .about p {
   max-width: 760px;
   margin: 0 auto;
@@ -468,10 +503,16 @@ section h2 {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+  justify-content: space-between;
   margin-top: 1rem;
 }
 
-.order-actions button {
+.order-actions #add-to-order-button {
+  width: 100%;
+}
+
+.order-actions button,
+.order-actions a {
   min-width: 160px;
 }
 

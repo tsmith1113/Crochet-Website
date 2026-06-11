@@ -467,8 +467,21 @@ function loadOrderItems() {
   }
 }
 
+function updateCartBadge() {
+  const badge = document.getElementById('cart-badge');
+  if (!badge) return;
+  const count = loadOrderItems().length;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 function saveOrderItems(items) {
   window.localStorage.setItem(orderItemsKey, JSON.stringify(items));
+  updateCartBadge();
 }
 
 function saveBillingDetails() {
@@ -1131,6 +1144,7 @@ async function updateAccountLink() {
 }
 
 updateAccountLink();
+updateCartBadge();
 
 async function autofillCheckout() {
   try {
