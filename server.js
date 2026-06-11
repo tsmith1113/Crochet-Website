@@ -4,11 +4,16 @@ import cors from 'cors';
 import Stripe from 'stripe';
 import { Resend } from 'resend';
 import sqlite3 from 'sqlite3';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
+
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
+app.use(cookieParser());
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const signature = req.headers['stripe-signature'];
   if (!stripeWebhookSecret) {
@@ -109,6 +114,20 @@ db.serialize(() => {
   `);
 });
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    street TEXT,
+    city TEXT,
+    state TEXT,
+    postal TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 const runAsync = (sql, params = []) => new Promise((resolve, reject) => {
   db.run(sql, params, function (err) {
     if (err) return reject(err);
@@ -203,6 +222,83 @@ async function sendShippingEmail(order, trackingNumber) {
     `
   });
 }
+
+app.post('/signup', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await runAsync(
+      'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+      [name, email, hashedPassword]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({
+      error: 'Account already exists'
+    });
+  }
+});
+
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password, rememberMe } = req.body;
+
+    const user = await getAsync(
+      'SELECT * FROM users WHERE email = ?',
+      [email]
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        error: 'Invalid email or password'
+      });
+    }
+
+    const validPassword = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!validPassword) {
+      return res.status(401).json({
+        error: 'Invalid email or password'
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: rememberMe ? '30d' : '1d'
+      }
+    );
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      maxAge: rememberMe
+        ? 30 * 24 * 60 * 60 * 1000
+        : 24 * 60 * 60 * 1000
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: 'Login failed'
+    });
+  }
+});
 
 app.get('/orders', async (req, res) => {
   try {

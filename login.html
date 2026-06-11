@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Stitched By Trae</title>
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+<div class="auth-container">
+    <div class="auth-card">
+
+        <h1>💜 Welcome Back</h1>
+        <p>Log in to your Stitched By Trae account.</p>
+
+        <form id="login-form">
+
+            <input
+                type="email"
+                id="email"
+                placeholder="Email Address"
+                required
+            >
+
+            <input
+                type="password"
+                id="password"
+                placeholder="Password"
+                required
+            >
+
+            <label class="remember-login">
+                <input
+                    type="checkbox"
+                    id="rememberMe"
+                >
+                Remember Me
+            </label>
+
+            <button type="submit" class="button">
+                Login
+            </button>
+
+        </form>
+
+        <p id="login-message"></p>
+
+        <p>
+            Don't have an account?
+            <a href="signup.html">Create One</a>
+        </p>
+
+    </div>
+</div>
+
+<script>
+document.getElementById('login-form')
+.addEventListener('submit', async (e) => {
+
+    e.preventDefault();
+
+    const response = await fetch('/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value,
+            rememberMe:
+                document.getElementById('rememberMe').checked
+        })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+        window.location.href = 'index.html';
+    } else {
+        document.getElementById('login-message')
+            .textContent = data.error;
+    }
+});
+</script>
+
+</body>
+</html>
