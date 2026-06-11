@@ -114,6 +114,7 @@ db.serialize(() => {
   `);
 });
 
+
 db.run(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -300,6 +301,91 @@ app.post('/login', async (req, res) => {
   }
 });
 
+app.get('/me', async (req, res) => {
+  try {
+    const token = req.cookies.token;
+
+    if (!token) {
+      return res.json({ loggedIn: false });
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    const user = await getAsync(
+      'SELECT * FROM users WHERE id = ?',
+      [decoded.userId]
+    );
+
+    if (!user) {
+      return res.json({ loggedIn: false });
+    }
+
+    res.json({
+      loggedIn: true,
+      user
+    });
+  } catch {
+    res.json({ loggedIn: false });
+  }
+});
+
+app.post('/logout', (req, res) => {
+  res.clearCookie('token');
+
+  res.json({
+    success: true,
+    message: 'Logged out successfully'
+  });
+});
+
+app.post('/update-profile', async (req, res) => {
+  try {
+    const token = req.cookies.token;
+
+    if (!token) {
+      return res.status(401).json({
+        error: 'Not logged in'
+      });
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    const {
+      street,
+      city,
+      state,
+      postal
+    } = req.body;
+
+    await runAsync(
+      `UPDATE users
+       SET street = ?, city = ?, state = ?, postal = ?
+       WHERE id = ?`,
+      [
+        street,
+        city,
+        state,
+        postal,
+        decoded.userId
+      ]
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: 'Unable to update profile'
+    });
+  }
+});
+
 app.get('/orders', async (req, res) => {
   try {
     const rows = await allAsync('SELECT * FROM orders ORDER BY created_at DESC');
@@ -332,6 +418,31 @@ app.post('/orders', async (req, res) => {
     if (await isWeeklyOrderLimitReached()) {
       return res.status(429).json({ error: 'Weekly order limit reached. Please try again next week.' });
     }
+    try {
+  const token = req.cookies.token;
+
+  if (token) {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    await runAsync(
+      `UPDATE users
+       SET street = ?, city = ?, state = ?, postal = ?
+       WHERE id = ?`,
+      [
+        street,
+        city,
+        state,
+        postal,
+        decoded.userId
+      ]
+    );
+  }
+} catch (err) {
+  console.error('Unable to save customer address:', err);
+}
 
     const orderNumber = createOrderNumber();
     const now = new Date().toISOString();

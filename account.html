@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Account</title>
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+<h1>My Account</h1>
+
+<p id="user-name"></p>
+<p id="user-email"></p>
+
+<h2>My Orders</h2>
+
+<div id="order-history">
+    Loading orders...
+</div>
+
+<button id="logout-btn">
+    Logout
+</button>
+
+<script>
+document.getElementById('logout-btn')
+.addEventListener('click', async () => {
+
+    await fetch('/logout', {
+        method: 'POST'
+    });
+
+    window.location.href = 'index.html';
+});
+</script>
+
+<script>
+async function loadUser() {
+    const response = await fetch('/me');
+    const data = await response.json();
+
+    if (!data.loggedIn) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    document.getElementById('user-name')
+        .textContent = data.user.name;
+
+    document.getElementById('user-email')
+        .textContent = data.user.email;
+
+    const ordersResponse = await fetch('/my-orders');
+    const orders = await ordersResponse.json();
+
+    const orderHistory =
+        document.getElementById('order-history');
+
+    if (!orders.length) {
+        orderHistory.innerHTML =
+            '<p>No orders yet.</p>';
+    } else {
+        orderHistory.innerHTML = orders.map(order => `
+            <div class="order-card">
+                <h3>${order.order_number}</h3>
+                <p>Status: ${order.status}</p>
+                <p>Total: $${order.total}</p>
+                <p>Date: ${new Date(order.created_at).toLocaleDateString()}</p>
+            </div>
+        `).join('');
+    }
+}
+
+loadUser();
+</script>
+
+</body>
+</html>

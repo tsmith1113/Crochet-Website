@@ -1100,3 +1100,85 @@ window.addEventListener('DOMContentLoaded', () => {
   updateCheckoutSummary();
   loadSavedBillingDetails();
 });
+
+async function updateAccountLink() {
+  try {
+    const response = await fetch('/me');
+    const data = await response.json();
+
+    const accountLink =
+      document.getElementById('account-nav-link');
+
+    if (!accountLink) return;
+
+    if (data.loggedIn) {
+      accountLink.innerHTML = `
+        <a href="account.html">
+          👤 ${data.user.name}
+        </a>
+      `;
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+updateAccountLink();
+
+updateAccountLink();
+
+async function autofillCheckout() {
+  try {
+    const response = await fetch('/me');
+    const data = await response.json();
+
+    if (!data.loggedIn) return;
+
+    const fullNameField =
+      document.querySelector('[name="fullName"]');
+
+    const emailField =
+      document.querySelector('[name="email"]');
+
+    const streetField =
+      document.querySelector('[name="street"]');
+
+    const cityField =
+      document.querySelector('[name="city"]');
+
+    const stateField =
+      document.querySelector('[name="state"]');
+
+    const postalField =
+      document.querySelector('[name="postal"]');
+
+    if (fullNameField) {
+      fullNameField.value = data.user.name || '';
+    }
+
+    if (emailField) {
+      emailField.value = data.user.email || '';
+    }
+
+    if (streetField) {
+      streetField.value = data.user.street || '';
+    }
+
+    if (cityField) {
+      cityField.value = data.user.city || '';
+    }
+
+    if (stateField) {
+      stateField.value = data.user.state || '';
+    }
+
+    if (postalField) {
+      postalField.value = data.user.postal || '';
+    }
+
+  } catch (err) {
+    console.error('Autofill failed:', err);
+  }
+}
+
+autofillCheckout();

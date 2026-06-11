@@ -765,3 +765,15 @@ footer {
     align-items: center;
     gap: .5rem;
 }
+
+.order-card {
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: white;
+}
+
+.order-card h3 {
+    margin-top: 0;
+}
