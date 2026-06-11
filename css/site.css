@@ -145,7 +145,10 @@ header {
   background: var(--primary);
   color: #fff;
   border-radius: 999px;
+  font-size: 1rem;
   font-weight: 700;
+  border: none;
+  cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -341,9 +344,10 @@ section h2 {
 }
 
 .product-grid {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   max-width: 1120px;
   margin: 0 auto;
 }
@@ -353,6 +357,9 @@ section h2 {
   border-radius: 24px;
   overflow: hidden;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 260px;
 }
 
 .card img {
@@ -721,6 +728,88 @@ footer {
 .policy-card p {
     margin-bottom: 0;
     color: var(--muted);
+}
+
+.product-page {
+    max-width: 1100px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+}
+
+.product-page-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+}
+
+.product-images .carousel {
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.product-images img {
+    width: 100%;
+    height: 420px;
+    object-fit: cover;
+    display: block;
+}
+
+.product-breadcrumb {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-bottom: 0.5rem;
+}
+
+.product-breadcrumb a {
+    color: #aaa;
+    text-decoration: none;
+}
+
+.product-breadcrumb a:hover {
+    color: #9b6ea8;
+}
+
+.product-details h1 {
+    font-size: 2rem;
+    margin: 0.25rem 0;
+}
+
+.product-page-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #9b6ea8;
+    margin: 0.5rem 0 1rem;
+}
+
+.product-page-desc {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.product-section-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.product-order-btn {
+    display: block;
+    margin: auto 1rem 1rem;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .product-page-layout {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .product-images img {
+        height: 280px;
+    }
 }
 
 .auth-container {

@@ -124,6 +124,12 @@ const productImageSets = {
     'Pictures/Pink Hat Front View.JPG',
     'Pictures/Pink Bucket Hat Back C.JPG'
   ],
+  ruffle2: [
+    'Pictures/Pink Hat Front View.JPG',
+    'Pictures/Pink Bucket Hat Back C.JPG',
+    'Pictures/Red Hat Front .JPG',
+    'Pictures/Red Hat Head Down.JPG'
+  ],
   scrunchie: [
     'Pictures/Orange Scrunchie.JPG',
     'Pictures/Purple Scrunchie.JPG',
@@ -135,6 +141,7 @@ const imageIndexes = {
   bucket: 0,
   buckethat: 0,
   ruffle: 0,
+  ruffle2: 0,
   scrunchie: 0
 };
 

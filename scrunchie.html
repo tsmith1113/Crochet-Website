@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crochet Scrunchie - Stitched By Trae</title>
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+    <header>
+        <nav class="nav-bar">
+            <div class="nav-brand">
+                <span class="logo">🧶</span>
+                <h1>Stitched By Trae</h1>
+            </div>
+            <button id="nav-toggle" class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-links" id="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="index.html#shop">Shop</a></li>
+                <li id="account-nav-link"><a href="login.html">Login / Sign Up</a></li>
+                <li><a href="checkout.html">Checkout</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="product-page">
+
+            <div class="product-page-layout">
+
+                <div class="product-images">
+                    <div class="carousel">
+                        <button class="carousel-btn prev" onclick="changeSlide('scrunchie', -1)">❮</button>
+                        <img id="scrunchie-image" src="Pictures/Orange Scrunchie.JPG" alt="Crochet Scrunchie">
+                        <button class="carousel-btn next" onclick="changeSlide('scrunchie', 1)">❯</button>
+                    </div>
+                </div>
+
+                <div class="product-details">
+                    <p class="product-breadcrumb"><a href="index.html#shop">Shop</a> / Crochet Scrunchie</p>
+                    <h1>Crochet Scrunchie</h1>
+                    <p class="product-page-price">$8</p>
+                    <p class="product-page-desc">Handmade crochet scrunchies in your choice of color and row style. Choose one, two, or three rows and mix your favorite colors.</p>
+
+                    <form class="custom-form" id="custom-form">
+
+                        <select name="product" style="display:none;" required>
+                            <option value="Scrunchie" selected>Scrunchie</option>
+                        </select>
+
+                        <div class="product-section-label">Number of Rows</div>
+                        <div id="scrunchie-row-count-control" class="row-count-control">
+                            <label>
+                                <select id="scrunchie-row-count" name="rowCount">
+                                    <option value="1">1 Row</option>
+                                    <option value="2">2 Rows</option>
+                                    <option value="3">3 Rows</option>
+                                </select>
+                            </label>
+                            <p class="color-note" style="margin-top:0.5rem;">Choose up to 3 rows for your scrunchie.</p>
+                        </div>
+
+                        <div id="all-one-color-control" class="all-one-color-control" style="display:none; margin-top:1rem;">
+                            <label>
+                                <input type="checkbox" id="all-one-color-checkbox">
+                                All one color
+                            </label>
+                        </div>
+
+                        <div class="product-section-label" style="margin-top:1rem;">Choose Your Colors</div>
+                        <div id="color-pickers" class="color-pickers"></div>
+
+                        <div class="order-actions">
+                            <button type="button" id="add-to-order-button" class="button">Add to Order</button>
+                            <a href="index.html#shop" class="button secondary">Back to Shop</a>
+                            <button type="button" id="go-checkout-button" class="button secondary">Go to Checkout</button>
+                        </div>
+
+                        <div class="form-message" id="custom-form-message" aria-live="polite"></div>
+                        <div class="cart-status" id="order-cart-message">No items in your order yet.</div>
+                        <div id="order-cart-list" class="order-cart-list"></div>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2026 Stitched By Trae. Handmade with ❤️</p>
+    </footer>
+
+    <script src="site.js"></script>
+</body>
+</html>

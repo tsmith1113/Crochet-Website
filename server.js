@@ -1,6 +1,7 @@
 ﻿import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import Stripe from 'stripe';
 import { Resend } from 'resend';
 import sqlite3 from 'sqlite3';
@@ -10,6 +11,24 @@ import cookieParser from 'cookie-parser';
 
 
 dotenv.config();
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many login attempts. Please try again in 15 minutes.' }
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many requests. Please try again in 15 minutes.' }
+});
+
+const signupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many accounts created. Please try again in an hour.' }
+});
 
 const app = express();
 app.use(cors({
@@ -228,6 +247,7 @@ function buildOrderConfirmationEmail(order) {
 async function sendOrderConfirmationEmail(order) {
   return resend.emails.send({
     from: 'orders@stitchedbytrae.com',
+    replyTo: 'stitchedbytrae@gmail.com',
     to: order.email,
     subject: `Order Confirmation #${order.order_number}`,
     html: buildOrderConfirmationEmail(order)
@@ -237,6 +257,7 @@ async function sendOrderConfirmationEmail(order) {
 async function sendShippingEmail(order, trackingNumber) {
   return resend.emails.send({
     from: 'orders@stitchedbytrae.com',
+    replyTo: 'stitchedbytrae@gmail.com',
     to: order.email,
     subject: `📦 Your order #${order.order_number} has shipped!`,
     html: `
@@ -248,7 +269,7 @@ async function sendShippingEmail(order, trackingNumber) {
   });
 }
 
-app.post('/signup', async (req, res) => {
+app.post('/signup', signupLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
@@ -268,7 +289,7 @@ app.post('/signup', async (req, res) => {
   }
 });
 
-app.post('/login', async (req, res) => {
+app.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password, rememberMe } = req.body;
 
@@ -364,7 +385,7 @@ app.post('/reset-password', async (req, res) => {
   }
 });
 
-app.post('/forgot-password', async (req, res) => {
+app.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const generic = { message: 'If an account exists, a reset email has been sent.' };
   try {
     const { email } = req.body;
@@ -380,6 +401,7 @@ app.post('/forgot-password', async (req, res) => {
     const origin = process.env.SITE_URL || 'http://localhost:3000';
     await resend.emails.send({
       from: 'orders@stitchedbytrae.com',
+      replyTo: 'stitchedbytrae@gmail.com',
       to: email,
       subject: 'Reset your Stitched By Trae password',
       html: `
