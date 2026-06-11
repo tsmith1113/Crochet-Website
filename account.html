@@ -59,14 +59,35 @@ async function loadUser() {
         orderHistory.innerHTML =
             '<p>No orders yet.</p>';
     } else {
-        orderHistory.innerHTML = orders.map(order => `
-            <div class="order-card">
-                <h3>${order.order_number}</h3>
-                <p>Status: ${order.status}</p>
-                <p>Total: $${order.total}</p>
-                <p>Date: ${new Date(order.created_at).toLocaleDateString()}</p>
-            </div>
-        `).join('');
+        orderHistory.innerHTML = orders.map(order => {
+
+    const items = JSON.parse(order.items || '[]');
+
+    const itemHtml = items.map(item => `
+        <div class="order-item">
+            <strong>${item.product}</strong>
+            <p>Colors: ${item.colors?.join(', ') || 'N/A'}</p>
+            <p>${item.size || item.headCircumference || ''}</p>
+        </div>
+    `).join('');
+
+    return `
+        <div class="order-card">
+            <h3>${order.order_number}</h3>
+
+            <p>Status: ${order.status}</p>
+
+            ${itemHtml}
+
+            <p><strong>Total:</strong> $${order.total}</p>
+
+            <p>
+                ${new Date(order.created_at)
+                    .toLocaleDateString()}
+            </p>
+        </div>
+    `;
+}).join('');
     }
 }
 

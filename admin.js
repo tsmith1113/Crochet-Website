@@ -20,15 +20,39 @@ function renderOrders(orders) {
   }
 
   ordersBody.innerHTML = orders.map(order => {
-    const isShipped = order.status === 'shipped';
+  const isShipped = order.status === 'shipped';
+
+  const items = (order.items || [])
+    .map(item => `
+      <div>
+        <strong>${item.product}</strong><br>
+        ${item.colors?.join(', ') || ''}
+      </div>
+    `)
+    .join('');
     return `
       <tr>
         <td>${order.order_number}</td>
-        <td>${order.email}</td>
+        <td>
+  ${order.email}
+  <br>
+  <small>${order.full_name || ''}</small>
+</td>
+
+<td>${items}</td>
         <td>${formatAmount(order.total)}</td>
         <td>${order.shipping}</td>
         <td class="admin-status">${order.status}</td>
-        <td>${order.tracking_number || '—'}</td>
+        <td>
+  <input
+    type="text"
+    class="tracking-input"
+    data-id="${order.id}"
+    value="${order.tracking_number || ''}"
+    placeholder="Enter tracking"
+    ${isShipped ? 'disabled' : ''}
+  >
+</td>
         <td>
           <button type="button" class="ship-button" data-id="${order.id}" ${isShipped ? 'disabled' : ''}>
             ${isShipped ? 'Shipped' : 'Mark Shipped'}
@@ -52,16 +76,22 @@ async function loadOrders() {
   }
 }
 
-async function markShipped(orderId) {
+async function markShipped(orderId, trackingNumber) {
   try {
     showAdminMessage('Sending shipping email...');
-    const response = await fetch(`${apiBase}/orders/${orderId}/ship`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({})
-    });
+
+    const response = await fetch(
+      `${apiBase}/orders/${orderId}/ship`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          trackingNumber
+        })
+      }
+    );
 
     const result = await response.json();
     if (!response.ok) {
@@ -82,7 +112,15 @@ if (ordersBody) {
     if (!button) return;
     const orderId = button.dataset.id;
     if (orderId) {
-      markShipped(orderId);
+      const trackingInput =
+  document.querySelector(
+    `.tracking-input[data-id="${orderId}"]`
+  );
+
+const trackingNumber =
+  trackingInput?.value.trim();
+
+markShipped(orderId, trackingNumber);
     }
   });
 }

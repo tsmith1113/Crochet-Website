@@ -301,6 +301,43 @@ app.post('/login', async (req, res) => {
   }
 });
 
+app.post('/reset-password', async (req, res) => {
+  try {
+
+    const { token, password } = req.body;
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    const hashedPassword =
+      await bcrypt.hash(password, 10);
+
+    await runAsync(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [
+        hashedPassword,
+        decoded.userId
+      ]
+    );
+
+    res.json({
+      success: true,
+      message:
+        'Password updated successfully.'
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(400).json({
+      error:
+        'Invalid or expired reset link.'
+    });
+  }
+});
+
 app.get('/me', async (req, res) => {
   try {
     const token = req.cookies.token;
@@ -382,6 +419,59 @@ app.post('/update-profile', async (req, res) => {
     console.error(err);
     res.status(500).json({
       error: 'Unable to update profile'
+    });
+  }
+});
+
+app.get('/my-orders', async (req, res) => {
+  try {
+    const token = req.cookies.token;
+
+    if (!token) {
+      return res.status(401).json({
+        error: 'Not logged in'
+      });
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    const user = await getAsync(
+      'SELECT * FROM users WHERE id = ?',
+      [decoded.userId]
+    );
+
+    const orders = await allAsync(
+      'SELECT * FROM orders WHERE email = ? ORDER BY created_at DESC',
+      [user.email]
+    );
+
+    res.json(orders);
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: 'Unable to load orders'
+    });
+  }
+});
+
+app.get('/admin/orders', async (req, res) => {
+  try {
+    const orders = await allAsync(
+      'SELECT * FROM orders ORDER BY created_at DESC'
+    );
+
+    res.json(orders);
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: 'Unable to load orders'
     });
   }
 });
@@ -471,6 +561,8 @@ app.post('/orders', async (req, res) => {
       ]
     );
 
+    console.log('User created:', email);
+
     const order = {
       order_number: orderNumber,
       full_name: fullName,
@@ -520,8 +612,36 @@ app.post('/create-checkout-session', async (req, res) => {
     }
 
     if (!stripeSecretKey) {
-      return res.status(500).json({ error: 'Stripe secret key is not configured.' });
-    }
+  return res.status(500).json({
+    error: 'Stripe secret key is not configured.'
+  });
+}
+
+try {
+  const token = req.cookies.token;
+
+  if (token) {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    await runAsync(
+      `UPDATE users
+       SET street = ?, city = ?, state = ?, postal = ?
+       WHERE id = ?`,
+      [
+        street,
+        city,
+        state,
+        postal,
+        decoded.userId
+      ]
+    );
+  }
+} catch (err) {
+  console.error('Unable to save customer address:', err);
+}
 
     const orderNumber = createOrderNumber();
     const now = new Date().toISOString();
