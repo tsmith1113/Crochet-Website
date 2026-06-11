@@ -30,6 +30,12 @@ const signupLimiter = rateLimit({
   message: { error: 'Too many accounts created. Please try again in an hour.' }
 });
 
+const orderLookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { error: 'Too many lookup attempts. Please try again in 15 minutes.' }
+});
+
 const app = express();
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
@@ -500,6 +506,37 @@ app.post('/update-profile', async (req, res) => {
     res.status(500).json({
       error: 'Unable to update profile'
     });
+  }
+});
+
+app.get('/order-lookup', orderLookupLimiter, async (req, res) => {
+  const { orderNumber, lastName } = req.query;
+  if (!orderNumber || !lastName) {
+    return res.status(400).json({ error: 'Order number and last name are required.' });
+  }
+  try {
+    const order = await getAsync('SELECT * FROM orders WHERE order_number = ?', [orderNumber.trim()]);
+    if (!order) return res.status(404).json({ error: 'Order not found. Please check your order number and last name.' });
+
+    const nameParts = (order.full_name || '').trim().split(' ');
+    const storedLastName = nameParts[nameParts.length - 1].toLowerCase();
+    if (storedLastName !== lastName.trim().toLowerCase()) {
+      return res.status(404).json({ error: 'Order not found. Please check your order number and last name.' });
+    }
+
+    return res.json({
+      orderNumber: order.order_number,
+      status: order.status,
+      items: JSON.parse(order.items || '[]'),
+      total: order.total,
+      shipping: order.shipping,
+      shippingCost: order.shipping_cost,
+      trackingNumber: order.tracking_number || null,
+      createdAt: order.created_at,
+    });
+  } catch (err) {
+    console.error('Order lookup error:', err);
+    res.status(500).json({ error: 'Server error. Please try again.' });
   }
 });
 

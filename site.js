@@ -36,6 +36,44 @@
   'Peach'
 ];
 
+const colorHexMap = {
+  'Black': '#1a1a1a',
+  'White': '#f8f8f8',
+  'Gray': '#9e9e9e',
+  'Charcoal': '#36454f',
+  'Cream': '#fffdd0',
+  'Beige': '#f2e8d0',
+  'Tan': '#d2b48c',
+  'Brown': '#795548',
+  'Red': '#e53935',
+  'Burgundy': '#7b1c2e',
+  'Maroon': '#6d1b1b',
+  'Orange': '#fb8c00',
+  'Burnt Orange': '#cc5500',
+  'Yellow': '#fdd835',
+  'Mustard': '#e6ac00',
+  'Gold': '#c9a227',
+  'Green': '#43a047',
+  'Forest Green': '#1b5e20',
+  'Olive': '#6d6f2b',
+  'Sage': '#7d9973',
+  'Mint': '#80cbc4',
+  'Blue': '#1e88e5',
+  'Navy': '#1a237e',
+  'Royal Blue': '#4169e1',
+  'Sky Blue': '#81d4fa',
+  'Teal': '#00838f',
+  'Turquoise': '#1de9b6',
+  'Purple': '#8e24aa',
+  'Lavender': '#b39ddb',
+  'Lilac': '#ce93d8',
+  'Pink': '#f48fb1',
+  'Hot Pink': '#e91e8c',
+  'Rose Pink': '#e91e63',
+  'Blush Pink': '#f8bbd0',
+  'Peach': '#ffccbc'
+};
+
 const basePrices = {
   Beanie: 25,
   'Bucket Hat': 25,
@@ -194,23 +232,58 @@ function getProductColorLabels(product) {
 }
 
 function createColorSelect(index, labelText = null) {
-  const wrapper = document.createElement('label');
+  const wrapper = document.createElement('div');
   wrapper.className = 'color-select-group';
 
-  const title = document.createElement('span');
-  title.textContent = labelText || `Color ${index + 1}`;
+  const labelEl = document.createElement('span');
+  labelEl.className = 'color-swatch-label';
+  labelEl.textContent = labelText || `Color ${index + 1}`;
 
-  const select = document.createElement('select');
-  select.className = 'color-select';
-  select.required = true;
-  select.dataset.index = index;
-  select.name = `color${index + 1}`;
-  select.innerHTML = `
-    <option value="">Select Color</option>
-    ${colorChoices.map(color => `<option value="${color}">${color}</option>`).join('')}
-  `;
+  const grid = document.createElement('div');
+  grid.className = 'color-swatches';
 
-  wrapper.append(title, select);
+  const selectedDisplay = document.createElement('span');
+  selectedDisplay.className = 'selected-color-name';
+  selectedDisplay.textContent = 'Select a color';
+
+  const hiddenInput = document.createElement('input');
+  hiddenInput.type = 'hidden';
+  hiddenInput.className = 'color-select';
+  hiddenInput.dataset.index = index;
+  hiddenInput.name = `color${index + 1}`;
+
+  wrapper.selectColor = (colorName) => {
+    grid.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    hiddenInput.value = colorName || '';
+    if (colorName) {
+      const swatch = Array.from(grid.querySelectorAll('.color-swatch')).find(s => s.dataset.color === colorName);
+      if (swatch) swatch.classList.add('selected');
+      selectedDisplay.textContent = colorName;
+    } else {
+      selectedDisplay.textContent = 'Select a color';
+    }
+  };
+
+  const lightColors = new Set(['White', 'Cream', 'Beige', 'Yellow', 'Mustard', 'Mint', 'Lavender', 'Lilac', 'Blush Pink', 'Sky Blue', 'Peach']);
+
+  colorChoices.forEach(color => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'color-swatch';
+    btn.dataset.color = color;
+    btn.title = color;
+    btn.style.background = colorHexMap[color] || '#ccc';
+    if (lightColors.has(color)) btn.style.outline = '1px solid rgba(0,0,0,0.15)';
+
+    btn.addEventListener('click', () => {
+      wrapper.selectColor(color);
+      updateDisabledOptions();
+      updateThirdColorNote();
+    });
+    grid.appendChild(btn);
+  });
+
+  wrapper.append(labelEl, grid, selectedDisplay, hiddenInput);
   return wrapper;
 }
 
@@ -312,19 +385,16 @@ function supportsAllOneColor(product) {
 function updateAllOneColorState() {
   if (!colorPickers) return;
   const checked = allOneColorCheckbox && allOneColorCheckbox.checked;
-  const colorSelects = Array.from(colorPickers.querySelectorAll('.color-select'));
+  const groups = Array.from(colorPickers.querySelectorAll('.color-select-group'));
 
-  colorSelects.forEach((select, index) => {
+  groups.forEach((group, index) => {
     if (index === 0) {
-      select.required = true;
-      select.disabled = false;
+      group.style.display = '';
       return;
     }
-
-    select.disabled = checked;
-    select.required = !checked;
-    if (checked) {
-      select.value = '';
+    group.style.display = checked ? 'none' : '';
+    if (checked && group.selectColor) {
+      group.selectColor('');
     }
   });
 }
@@ -351,16 +421,18 @@ function updateDisabledOptions() {
   }
 
   const selectedColors = getSelectedColors();
-  const colorSelects = colorPickers.querySelectorAll('.color-select');
+  const groups = Array.from(colorPickers.querySelectorAll('.color-select-group'));
 
-  colorSelects.forEach(select => {
-    const currentValue = select.value;
-    Array.from(select.options).forEach(option => {
-      if (!option.value) {
-        option.disabled = false;
-        return;
+  groups.forEach(group => {
+    const input = group.querySelector('.color-select');
+    const currentValue = input ? input.value : '';
+    group.querySelectorAll('.color-swatch').forEach(swatch => {
+      const color = swatch.dataset.color;
+      if (selectedColors.includes(color) && color !== currentValue) {
+        swatch.classList.add('swatch-taken');
+      } else {
+        swatch.classList.remove('swatch-taken');
       }
-      option.disabled = selectedColors.includes(option.value) && option.value !== currentValue;
     });
   });
 }
@@ -377,9 +449,8 @@ function updateColorPickers() {
 
   colorLabels.forEach((label, index) => {
     const picker = createColorSelect(index, label);
-    const select = picker.querySelector('.color-select');
-    if (values[index]) {
-      select.value = values[index];
+    if (values[index] && picker.selectColor) {
+      picker.selectColor(values[index]);
     }
     colorPickers.appendChild(picker);
   });
@@ -487,7 +558,7 @@ function saveOrderItems(items) {
 function saveBillingDetails() {
   if (!checkoutForm || !rememberDetailsCheckbox) return;
   const data = {};
-  ['fullName', 'email', 'street', 'city', 'state', 'postal'].forEach(name => {
+  ['firstName', 'lastName', 'email', 'street', 'city', 'state', 'postal'].forEach(name => {
     const field = checkoutForm.querySelector(`[name="${name}"]`);
     if (field) {
       data[name] = field.value.trim();
@@ -505,7 +576,9 @@ function clearBillingDetails() {
 function buildCheckoutPayload(form) {
   if (!form) return null;
   const emailField = form.querySelector('input[name="email"]');
-  const fullNameField = form.querySelector('input[name="fullName"]');
+  const firstNameField = form.querySelector('input[name="firstName"]');
+  const lastNameField = form.querySelector('input[name="lastName"]');
+  const fullName = [firstNameField?.value.trim(), lastNameField?.value.trim()].filter(Boolean).join(' ');
   const streetField = form.querySelector('input[name="street"]');
   const cityField = form.querySelector('input[name="city"]');
   const stateField = form.querySelector('select[name="state"]');
@@ -520,7 +593,7 @@ function buildCheckoutPayload(form) {
   const shippingCost = getShippingPrice(shippingKey);
 
   return {
-    fullName: fullNameField ? fullNameField.value.trim() : '',
+    fullName,
     email: emailField ? emailField.value.trim() : '',
     street: streetField ? streetField.value.trim() : '',
     city: cityField ? cityField.value.trim() : '',
@@ -635,7 +708,7 @@ function loadSavedBillingDetails() {
     const remember = window.localStorage.getItem(rememberDetailsKey) === 'true';
     if (!saved || !remember) return;
     const data = JSON.parse(saved);
-    ['fullName', 'email', 'street', 'city', 'state', 'postal'].forEach(name => {
+    ['firstName', 'lastName', 'email', 'street', 'city', 'state', 'postal'].forEach(name => {
       const field = checkoutForm.querySelector(`[name="${name}"]`);
       if (field && data[name]) {
         field.value = data[name];
@@ -1100,13 +1173,6 @@ if (sendReceiptButton) {
   });
 }
 
-if (colorPickers) {
-  colorPickers.addEventListener('change', event => {
-    if (event.target.classList.contains('color-select')) {
-      updateColorPickers();
-    }
-  });
-}
 
 if (shippingSelect) {
   shippingSelect.addEventListener('change', updateCheckoutSummary);
@@ -1158,8 +1224,10 @@ async function autofillCheckout() {
       if (label) label.style.display = 'none';
     }
 
-    const fullNameField =
-      document.querySelector('[name="fullName"]');
+    const firstNameField =
+      document.querySelector('[name="firstName"]');
+    const lastNameField =
+      document.querySelector('[name="lastName"]');
 
     const emailField =
       document.querySelector('[name="email"]');
@@ -1176,8 +1244,12 @@ async function autofillCheckout() {
     const postalField =
       document.querySelector('[name="postal"]');
 
-    if (fullNameField) {
-      fullNameField.value = data.user.name || '';
+    if (firstNameField || lastNameField) {
+      const nameParts = (data.user.name || '').trim().split(' ');
+      const first = nameParts[0] || '';
+      const last = nameParts.slice(1).join(' ');
+      if (firstNameField) firstNameField.value = first;
+      if (lastNameField) lastNameField.value = last;
     }
 
     if (emailField) {

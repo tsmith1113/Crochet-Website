@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Lookup - Stitched By Trae</title>
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+    <header>
+        <nav class="nav-bar">
+            <div class="nav-brand">
+                <span class="logo">🧶</span>
+                <h1>Stitched By Trae</h1>
+            </div>
+            <button id="nav-toggle" class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-links" id="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="index.html#shop">Shop</a></li>
+                <li id="account-nav-link"><a href="login.html">Login / Sign Up</a></li>
+                <li class="cart-nav-item"><a href="checkout.html" class="cart-nav-link">🛒<span id="cart-badge" class="cart-badge"></span></a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="checkout-hero">
+            <h2>Order Lookup</h2>
+            <p>Enter your order number and last name to check your order status.</p>
+        </section>
+
+        <div class="order-lookup-wrapper">
+            <div class="order-lookup-card">
+                <form id="lookup-form">
+                    <div class="lookup-field">
+                        <label for="lookup-order-number">Order Number</label>
+                        <input type="text" id="lookup-order-number" placeholder="e.g. STB-123456" required>
+                    </div>
+                    <div class="lookup-field">
+                        <label for="lookup-last-name">Last Name</label>
+                        <input type="text" id="lookup-last-name" placeholder="Last name used at checkout" required>
+                    </div>
+                    <button type="submit" class="button" style="width:100%; margin-top:0.5rem;">Look Up Order</button>
+                    <p class="form-message" id="lookup-error" aria-live="polite"></p>
+                </form>
+            </div>
+
+            <div id="lookup-result" class="lookup-result" style="display:none;">
+                <div class="lookup-result-card">
+                    <div class="lookup-result-header">
+                        <h2>Order <span id="result-order-number"></span></h2>
+                        <span id="result-status-badge" class="order-status-badge"></span>
+                    </div>
+
+                    <div class="lookup-result-meta">
+                        <p><strong>Placed:</strong> <span id="result-date"></span></p>
+                        <p><strong>Shipping:</strong> <span id="result-shipping"></span></p>
+                        <p><strong>Total:</strong> <span id="result-total"></span></p>
+                    </div>
+
+                    <div id="result-tracking-wrap" style="display:none;" class="lookup-tracking">
+                        <p>📦 <strong>Tracking Number:</strong> <span id="result-tracking"></span></p>
+                    </div>
+
+                    <div class="lookup-items">
+                        <h3>Items Ordered</h3>
+                        <ul id="result-items"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2026 Stitched By Trae. Handmade with ❤️</p>
+    </footer>
+
+    <script src="site.js"></script>
+    <script>
+        document.getElementById('lookup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const orderNumber = document.getElementById('lookup-order-number').value.trim();
+            const lastName = document.getElementById('lookup-last-name').value.trim();
+            const errorEl = document.getElementById('lookup-error');
+            const resultEl = document.getElementById('lookup-result');
+
+            errorEl.textContent = '';
+            resultEl.style.display = 'none';
+
+            try {
+                const res = await fetch(`/order-lookup?orderNumber=${encodeURIComponent(orderNumber)}&lastName=${encodeURIComponent(lastName)}`);
+                const data = await res.json();
+
+                if (!res.ok) {
+                    errorEl.textContent = data.error || 'Order not found.';
+                    return;
+                }
+
+                document.getElementById('result-order-number').textContent = '#' + data.orderNumber;
+
+                const badge = document.getElementById('result-status-badge');
+                badge.textContent = data.status || 'Pending';
+                badge.className = 'order-status-badge status-' + (data.status || 'pending').toLowerCase();
+
+                const date = data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+                document.getElementById('result-date').textContent = date;
+
+                const shippingLabel = data.shipping === 'express' ? 'Express (2–3 days)' : 'Standard (5–7 days)';
+                document.getElementById('result-shipping').textContent = shippingLabel;
+                document.getElementById('result-total').textContent = '$' + Number(data.total).toFixed(2);
+
+                const trackingWrap = document.getElementById('result-tracking-wrap');
+                if (data.trackingNumber) {
+                    document.getElementById('result-tracking').textContent = data.trackingNumber;
+                    trackingWrap.style.display = 'block';
+                } else {
+                    trackingWrap.style.display = 'none';
+                }
+
+                const itemsList = document.getElementById('result-items');
+                itemsList.innerHTML = '';
+                (data.items || []).forEach(item => {
+                    const colors = (item.colors || []).join(', ');
+                    const li = document.createElement('li');
+                    li.textContent = `${item.product}${colors ? ' — ' + colors : ''}`;
+                    itemsList.appendChild(li);
+                });
+
+                resultEl.style.display = 'block';
+            } catch {
+                errorEl.textContent = 'Something went wrong. Please try again.';
+            }
+        });
+    </script>
+</body>
+</html>
