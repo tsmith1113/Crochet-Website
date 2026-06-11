@@ -988,7 +988,18 @@ if (customForm) {
 if (goCheckoutButton) {
   goCheckoutButton.addEventListener('click', () => {
     if (!validateCustomOrder()) return;
-    addCurrentOrderItem();
+
+    const currentOrder = serializeCustomOrder();
+    const items = loadOrderItems();
+
+    const alreadyExists = items.some(item =>
+      JSON.stringify(item) === JSON.stringify(currentOrder)
+    );
+
+    if (!alreadyExists) {
+      addCurrentOrderItem();
+    }
+
     window.location.href = 'checkout.html';
   });
 }
