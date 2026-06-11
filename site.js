@@ -1125,14 +1125,17 @@ async function updateAccountLink() {
 
 updateAccountLink();
 
-updateAccountLink();
-
 async function autofillCheckout() {
   try {
     const response = await fetch('/me');
     const data = await response.json();
 
     if (!data.loggedIn) return;
+
+    if (rememberDetailsCheckbox) {
+      const label = rememberDetailsCheckbox.closest('label');
+      if (label) label.style.display = 'none';
+    }
 
     const fullNameField =
       document.querySelector('[name="fullName"]');

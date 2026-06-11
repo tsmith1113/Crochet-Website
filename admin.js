@@ -125,4 +125,17 @@ markShipped(orderId, trackingNumber);
   });
 }
 
-window.addEventListener('DOMContentLoaded', loadOrders);
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/me');
+    const data = await res.json();
+    if (!data.loggedIn || !data.user.is_admin) {
+      window.location.href = 'login.html';
+      return;
+    }
+  } catch {
+    window.location.href = 'login.html';
+    return;
+  }
+  loadOrders();
+});

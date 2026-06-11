@@ -12,7 +12,10 @@ import cookieParser from 'cookie-parser';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(cookieParser());
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const signature = req.headers['stripe-signature'];
@@ -121,6 +124,7 @@ db.run(`
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
+    is_admin INTEGER DEFAULT 0,
     street TEXT,
     city TEXT,
     state TEXT,
@@ -128,6 +132,8 @@ db.run(`
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )
 `);
+
+db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`, () => {});
 
 const runAsync = (sql, params = []) => new Promise((resolve, reject) => {
   db.run(sql, params, function (err) {
@@ -149,6 +155,24 @@ const getAsync = (sql, params = []) => new Promise((resolve, reject) => {
     resolve(row);
   });
 });
+
+async function requireAdmin(req, res, next) {
+  try {
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ error: 'Not logged in' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await getAsync('SELECT * FROM users WHERE id = ?', [decoded.userId]);
+
+    if (!user || !user.is_admin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    next();
+  } catch {
+    res.status(401).json({ error: 'Invalid or expired session' });
+  }
+}
 
 function parseOrderRow(row) {
   if (!row) return null;
@@ -280,6 +304,8 @@ app.post('/login', async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
       maxAge: rememberMe
         ? 30 * 24 * 60 * 60 * 1000
         : 24 * 60 * 60 * 1000
@@ -335,6 +361,38 @@ app.post('/reset-password', async (req, res) => {
       error:
         'Invalid or expired reset link.'
     });
+  }
+});
+
+app.post('/forgot-password', async (req, res) => {
+  const generic = { message: 'If an account exists, a reset email has been sent.' };
+  try {
+    const { email } = req.body;
+    const user = await getAsync('SELECT * FROM users WHERE email = ?', [email]);
+    if (!user) return res.json(generic);
+
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    const origin = process.env.SITE_URL || 'http://localhost:3000';
+    await resend.emails.send({
+      from: 'orders@stitchedbytrae.com',
+      to: email,
+      subject: 'Reset your Stitched By Trae password',
+      html: `
+        <p>Click the link below to reset your password. This link expires in 1 hour.</p>
+        <p><a href="${origin}/reset-password.html?token=${token}">Reset Password</a></p>
+        <p>If you did not request this, you can safely ignore this email.</p>
+      `
+    });
+
+    res.json(generic);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Unable to send reset email.' });
   }
 });
 
@@ -459,7 +517,7 @@ app.get('/my-orders', async (req, res) => {
   }
 });
 
-app.get('/admin/orders', async (req, res) => {
+app.get('/admin/orders', requireAdmin, async (req, res) => {
   try {
     const orders = await allAsync(
       'SELECT * FROM orders ORDER BY created_at DESC'
@@ -476,7 +534,7 @@ app.get('/admin/orders', async (req, res) => {
   }
 });
 
-app.get('/orders', async (req, res) => {
+app.get('/orders', requireAdmin, async (req, res) => {
   try {
     const rows = await allAsync('SELECT * FROM orders ORDER BY created_at DESC');
     res.json(rows.map(parseOrderRow));
@@ -561,7 +619,7 @@ app.post('/orders', async (req, res) => {
       ]
     );
 
-    console.log('User created:', email);
+    console.log('Order created:', email);
 
     const order = {
       order_number: orderNumber,
@@ -695,7 +753,7 @@ try {
   }
 });
 
-app.post('/orders/:id/ship', async (req, res) => {
+app.post('/orders/:id/ship', requireAdmin, async (req, res) => {
   try {
     const orderId = Number(req.params.id);
     const trackingNumber = req.body.trackingNumber || `TRK-${Date.now().toString().slice(-8)}`;

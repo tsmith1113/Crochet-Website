@@ -760,10 +760,47 @@ footer {
     border-radius: 8px;
 }
 
+.password-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-field input {
+    flex: 1;
+    padding-right: 3.5rem;
+}
+
+.show-password-toggle {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9b6ea8;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 4px 6px;
+    user-select: none;
+}
+
+.show-password-toggle:hover {
+    color: #7a4f8a;
+}
+
 .remember-login {
     display: flex;
     align-items: center;
     gap: .5rem;
+}
+
+.continue-guest {
+    color: #aaa;
+    font-size: 0.85rem;
+}
+
+.continue-guest:hover {
+    color: #888;
 }
 
 .order-card {
