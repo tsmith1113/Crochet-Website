@@ -66,14 +66,23 @@
 
         <p id="signup-message"></p>
 
-        <p>
-            Already have an account?
-            <a href="/login">Login</a>
-        </p>
+        <div id="signup-links">
+            <p>
+                Already have an account?
+                <a href="/login">Login</a>
+            </p>
 
-        <p>
-            <a href="/" class="continue-guest">Continue without logging in</a>
-        </p>
+            <p>
+                <a href="/" class="continue-guest">Continue without logging in</a>
+            </p>
+        </div>
+
+        <div id="signup-success-links" style="display:none; text-align:center;">
+            <a href="/login" class="button" style="display:inline-block; margin-bottom:1rem;">Go to Login</a>
+            <p>
+                <a href="/" class="continue-guest">Continue without logging in</a>
+            </p>
+        </div>
 
     </div>
 </div>
@@ -121,6 +130,8 @@ document.getElementById('signup-form')
         document.getElementById('signup-message').style.color = '#5a3e6b';
         document.getElementById('signup-message').textContent = data.message;
         document.getElementById('signup-form').style.display = 'none';
+        document.getElementById('signup-links').style.display = 'none';
+        document.getElementById('signup-success-links').style.display = 'block';
     } else {
         document.getElementById('signup-message').style.color = 'red';
         document.getElementById('signup-message').textContent = data.error;

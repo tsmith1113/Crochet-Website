@@ -82,6 +82,7 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
   res.json({ received: true });
 });
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -333,13 +334,36 @@ app.post('/signup', signupLimiter, async (req, res) => {
   }
 });
 
-app.get('/verify-email', async (req, res) => {
+app.get('/verify-email', (req, res) => {
   const { token } = req.query;
-  console.log('Verify email attempt, token:', token);
+  if (!token) return res.redirect('/login?error=invalid');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Email - Stitched By Trae</title>
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<div class="auth-container"><div class="auth-card">
+  <h1>🧶 Verify Your Email</h1>
+  <p>Click the button below to verify your email address and activate your account.</p>
+  <form id="verify-form" method="POST" action="/verify-email">
+    <input type="hidden" name="token" value="${token}">
+    <button type="submit" class="button">Verify My Email</button>
+  </form>
+  <script>document.getElementById('verify-form').submit();</script>
+</div></div>
+</body>
+</html>`);
+});
+
+app.post('/verify-email', async (req, res) => {
+  const { token } = req.body;
   if (!token) return res.redirect('/login?error=invalid');
   try {
     const user = await getAsync('SELECT * FROM users WHERE verification_token = ?', [token]);
-    console.log('Verify email user found:', user ? user.email : 'none');
     if (!user) return res.redirect('/login?error=invalid');
     await runAsync(
       'UPDATE users SET email_verified = 1, verification_token = NULL WHERE id = ?',
