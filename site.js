@@ -770,11 +770,21 @@ function getMeasurementText(order) {
   return '';
 }
 
+function getItemColorLabels(product, bucketHatStyle) {
+  if (product === 'Ruffle Bucket Hat') {
+    return bucketHatStyle === 'main-rest'
+      ? ['Main Color', 'Rest of Hat']
+      : ['Main Color', 'Outer Color', 'Top Color'];
+  }
+  return ['Color'];
+}
+
 function getOrderMetaText(order) {
   if (!order) return '';
+  const labels = getItemColorLabels(order.product, order.bucketHatStyle);
   const colorText = order.allOneColor && order.colors.length
     ? `All one color: ${order.colors[0]}`
-    : `${order.colors.join(', ')}`;
+    : order.colors.map((c, i) => `${labels[i] || 'Color'}: ${c}`).join(', ');
   const parts = [colorText];
 
   if (order.product === 'Scrunchie') {

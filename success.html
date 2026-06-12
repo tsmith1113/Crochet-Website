@@ -50,13 +50,13 @@
     </section>
 </main>
 <script>
-  const continueButton = document.getElementById('continue-shopping-button');
-  if (continueButton) {
-    continueButton.addEventListener('click', () => {
-      localStorage.removeItem('stitchedByTraeOrderItems');
-      localStorage.removeItem('stitchedByTraeOrder');
-      sessionStorage.removeItem('stitchedByTraeOrderSession');
-    });
+  localStorage.removeItem('stitchedByTraeOrderItems');
+  localStorage.removeItem('stitchedByTraeOrder');
+  sessionStorage.removeItem('stitchedByTraeOrderSession');
+
+  const sessionId = new URLSearchParams(window.location.search).get('session_id');
+  if (sessionId) {
+    fetch(`/confirm-order?session_id=${encodeURIComponent(sessionId)}`).catch(() => {});
   }
 </script>
 

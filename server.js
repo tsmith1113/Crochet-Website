@@ -695,6 +695,23 @@ app.post('/logout', (req, res) => {
   });
 });
 
+app.post('/save-address', async (req, res) => {
+  try {
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ error: 'Not logged in' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { street, city, state, postal } = req.body;
+    await runAsync(
+      'UPDATE users SET street = ?, city = ?, state = ?, postal = ? WHERE id = ?',
+      [street || '', city || '', state || '', postal || '', decoded.userId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Unable to save address' });
+  }
+});
+
 app.post('/update-profile', async (req, res) => {
   try {
     const token = req.cookies.token;
@@ -999,7 +1016,7 @@ app.post('/create-checkout-session', async (req, res) => {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${origin}/success`,
+      success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/checkout?payment=cancel`,
       customer_email: email,
       metadata: {
@@ -1014,6 +1031,52 @@ app.post('/create-checkout-session', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Unable to create Stripe checkout session.' });
+  }
+});
+
+app.get('/confirm-order', async (req, res) => {
+  const { session_id } = req.query;
+  if (!session_id) return res.status(400).json({ error: 'Missing session_id' });
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    if (session.payment_status !== 'paid') {
+      return res.status(402).json({ error: 'Payment not completed' });
+    }
+
+    const orderId = Number(session.metadata?.orderId);
+    if (!orderId) return res.status(400).json({ error: 'Order not found in session' });
+
+    const orderRow = await getAsync('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!orderRow) return res.status(404).json({ error: 'Order not found' });
+
+    if (orderRow.status !== 'confirmed') {
+      await runAsync(
+        'UPDATE orders SET status = ?, updated_at = ? WHERE id = ?',
+        ['confirmed', new Date().toISOString(), orderId]
+      );
+      const order = parseOrderRow({ ...orderRow, status: 'confirmed' });
+      sendOrderConfirmationEmail(order).catch(err => console.error('Confirmation email failed:', err));
+      sendOwnerNotificationEmail(order).catch(err => console.error('Owner notification failed:', err));
+    }
+
+    res.json({ success: true, orderNumber: orderRow.order_number });
+  } catch (err) {
+    console.error('Confirm order error:', err);
+    res.status(500).json({ error: 'Unable to confirm order' });
+  }
+});
+
+app.post('/orders/:id/resend-confirmation', requireAdmin, async (req, res) => {
+  try {
+    const orderRow = await getAsync('SELECT * FROM orders WHERE id = ?', [Number(req.params.id)]);
+    if (!orderRow) return res.status(404).json({ error: 'Order not found' });
+    const order = parseOrderRow(orderRow);
+    await sendOrderConfirmationEmail(order);
+    res.json({ success: true, order_number: order.order_number });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to send confirmation email' });
   }
 });
 

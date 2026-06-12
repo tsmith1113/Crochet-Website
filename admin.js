@@ -78,6 +78,9 @@ function renderOrders(orders) {
           <button type="button" class="ship-button" data-id="${order.id}" ${isShipped ? 'disabled' : ''}>
             ${isShipped ? 'Shipped' : 'Mark Shipped'}
           </button>
+          <button type="button" class="resend-button" data-id="${order.id}" style="margin-top:6px;">
+            Resend Email
+          </button>
         </td>
       </tr>
     `;
@@ -88,12 +91,17 @@ async function loadOrders() {
   try {
     showAdminMessage('Loading orders...');
     const response = await fetch(`${apiBase}/orders`);
-    const orders = await response.json();
+    const data = await response.json();
+    if (!response.ok) {
+      showAdminMessage(`Error loading orders: ${data.error || response.status}`, true);
+      return;
+    }
+    const orders = Array.isArray(data) ? data : [];
     renderOrders(orders);
     showAdminMessage(`Loaded ${orders.length} order${orders.length === 1 ? '' : 's'}.`);
   } catch (error) {
     console.error(error);
-    showAdminMessage('Unable to load orders.', true);
+    showAdminMessage('Unable to load orders. Check the browser console for details.', true);
   }
 }
 
@@ -127,21 +135,33 @@ async function markShipped(orderId, trackingNumber) {
   }
 }
 
+async function resendConfirmation(orderId) {
+  try {
+    showAdminMessage('Sending confirmation email...');
+    const response = await fetch(`${apiBase}/orders/${orderId}/resend-confirmation`, { method: 'POST' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to send email.');
+    showAdminMessage(`Confirmation email sent for order ${result.order_number}.`);
+  } catch (error) {
+    showAdminMessage(error.message, true);
+  }
+}
+
 if (ordersBody) {
   ordersBody.addEventListener('click', event => {
-    const button = event.target.closest('.ship-button');
-    if (!button) return;
-    const orderId = button.dataset.id;
-    if (orderId) {
-      const trackingInput =
-  document.querySelector(
-    `.tracking-input[data-id="${orderId}"]`
-  );
+    const shipButton = event.target.closest('.ship-button');
+    if (shipButton) {
+      const orderId = shipButton.dataset.id;
+      if (orderId) {
+        const trackingInput = document.querySelector(`.tracking-input[data-id="${orderId}"]`);
+        const trackingNumber = trackingInput?.value.trim();
+        markShipped(orderId, trackingNumber);
+      }
+    }
 
-const trackingNumber =
-  trackingInput?.value.trim();
-
-markShipped(orderId, trackingNumber);
+    const resendButton = event.target.closest('.resend-button');
+    if (resendButton) {
+      resendConfirmation(resendButton.dataset.id);
     }
   });
 }
