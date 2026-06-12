@@ -225,10 +225,23 @@ function getItemPrice(item) {
   return Number(item.price || 0);
 }
 
+function getItemColorLabels(product, bucketHatStyle) {
+  if (product === 'Ruffle Bucket Hat') {
+    return bucketHatStyle === 'main-rest'
+      ? ['Main Color', 'Rest of Hat']
+      : ['Main Color', 'Outer Color', 'Top Color'];
+  }
+  return ['Color'];
+}
+
 function buildOrderConfirmationEmail(order) {
   const itemsHtml = order.items.map((item, index) => {
     const details = [];
-    if (item.colors?.length) details.push(`<strong>Colors:</strong> ${item.colors.join(', ')}`);
+    if (item.colors?.length) {
+      const labels = getItemColorLabels(item.product, item.bucketHatStyle);
+      const colorStr = item.colors.map((c, i) => `${labels[i] || 'Color'}: ${c}`).join(', ');
+      details.push(`<strong>Colors:</strong> ${colorStr}`);
+    }
     if (item.bucketHatStyle) details.push(`<strong>Style:</strong> ${item.bucketHatStyle.replace(/-/g, ' ')}`);
     if (item.headCircumference) details.push(`<strong>Head circumference:</strong> ${item.headCircumference}"`);
     if (item.size) details.push(`<strong>Size:</strong> ${item.size}`);
@@ -321,15 +334,20 @@ async function sendOrderConfirmationEmail(order) {
 
 async function sendOwnerNotificationEmail(order) {
   const ownerEmail = process.env.OWNER_EMAIL || 'stitchedbytrae@gmail.com';
-  const itemsHtml = order.items.map((item, i) => `
+  const itemsHtml = order.items.map((item, i) => {
+    const labels = getItemColorLabels(item.product, item.bucketHatStyle);
+    const colorStr = (item.colors || []).map((c, idx) => `${labels[idx] || 'Color'}: ${c}`).join(', ') || '—';
+    const detail = [item.headCircumference ? `Head: ${item.headCircumference}"` : '', item.size || ''].filter(Boolean).join(', ') || '—';
+    return `
     <tr>
       <td style="padding:6px 10px;">${i + 1}</td>
       <td style="padding:6px 10px;">${item.product}</td>
-      <td style="padding:6px 10px;">${item.colors?.join(', ') || '—'}</td>
-      <td style="padding:6px 10px;">${item.headCircumference || item.size || '—'}</td>
+      <td style="padding:6px 10px;">${colorStr}</td>
+      <td style="padding:6px 10px;">${detail}</td>
       <td style="padding:6px 10px;">$${getItemPrice(item)}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">

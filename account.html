@@ -65,6 +65,15 @@
 
 <script src="site.js"></script>
 <script>
+function getItemColorLabels(product, bucketHatStyle) {
+    if (product === 'Ruffle Bucket Hat') {
+        return bucketHatStyle === 'main-rest'
+            ? ['Main Color', 'Rest of Hat']
+            : ['Main Color', 'Outer Color', 'Top Color'];
+    }
+    return ['Color'];
+}
+
 async function loadUser() {
     const res = await fetch('/me');
     const data = await res.json();
@@ -110,17 +119,20 @@ async function loadUser() {
         };
         const { label, cls } = statusMap[order.status] || { label: order.status, cls: '' };
 
-        const itemsHtml = items.map(item => `
+        const itemsHtml = items.map(item => {
+            const colorLabels = getItemColorLabels(item.product, item.bucketHatStyle);
+            const colorStr = (item.colors || []).map((c, i) => `${colorLabels[i] || 'Color'}: ${c}`).join(', ');
+            const details = [
+                colorStr,
+                item.size || (item.headCircumference ? `Head: ${item.headCircumference}"` : ''),
+                item.rowCount > 1 ? `Rows: ${item.rowCount}` : ''
+            ].filter(Boolean).join(' · ');
+            return `
             <div class="account-order-item">
                 <span class="account-order-item-name">${item.product}</span>
-                <span class="account-order-item-meta">
-                    ${[
-                        item.colors?.join(', '),
-                        item.size || (item.headCircumference ? item.headCircumference + '"' : '')
-                    ].filter(Boolean).join(' · ')}
-                </span>
+                <span class="account-order-item-meta">${details}</span>
             </div>
-        `).join('');
+        `}).join('');
 
         return `
             <div class="account-order-card">

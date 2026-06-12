@@ -1323,6 +1323,19 @@ async function autofillCheckout() {
       postalField.value = data.user.postal || '';
     }
 
+    const nameParts = (data.user.name || '').trim().split(' ');
+    const savedDetails = {
+      firstName: nameParts[0] || '',
+      lastName: nameParts.slice(1).join(' '),
+      email: data.user.email || '',
+      street: data.user.street || '',
+      city: data.user.city || '',
+      state: data.user.state || '',
+      postal: data.user.postal || ''
+    };
+    window.localStorage.setItem(billingDetailsKey, JSON.stringify(savedDetails));
+    window.localStorage.setItem(rememberDetailsKey, 'true');
+
   } catch (err) {
     console.error('Autofill failed:', err);
   }
