@@ -1404,3 +1404,217 @@ footer {
 .order-card h3 {
     margin-top: 0;
 }
+
+/* ── Account Page ── */
+
+.account-hero {
+    background: linear-gradient(135deg, #fdf6f0 0%, #f3e8f7 100%);
+    padding: 3rem 1.5rem 2.5rem;
+    text-align: center;
+}
+
+.account-hero-content h2 {
+    margin: 0 0 0.4rem;
+    font-size: clamp(1.8rem, 3vw, 2.5rem);
+}
+
+.account-hero-content p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 1rem;
+}
+
+.account-body {
+    max-width: 760px;
+    margin: 2rem auto 4rem;
+    padding: 0 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.account-info-card {
+    background: var(--surface);
+    border-radius: 24px;
+    padding: 1.75rem 2rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.account-info-details {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.account-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), #a0614a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.account-avatar span {
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.account-info-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.account-name {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.account-email {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.account-logout-btn {
+    padding: 0.65rem 1.4rem;
+    border: 1.5px solid rgba(140, 111, 95, 0.3);
+    background: transparent;
+    color: var(--text);
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    white-space: nowrap;
+}
+
+.account-logout-btn:hover {
+    background: rgba(194, 125, 82, 0.08);
+    border-color: var(--primary);
+}
+
+.account-orders h3 {
+    font-size: 1.25rem;
+    margin: 0 0 1.25rem;
+    color: var(--text);
+}
+
+.account-loading {
+    color: var(--muted);
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.account-no-orders {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    background: var(--surface);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+}
+
+.account-no-orders p {
+    color: var(--muted);
+    margin: 0 0 1.25rem;
+    font-size: 1rem;
+}
+
+.account-order-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.account-order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.account-order-number {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.account-order-date {
+    margin: 0.2rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.account-order-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-top: 1px solid rgba(140, 111, 95, 0.1);
+    padding-top: 1rem;
+}
+
+.account-order-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.6rem 0.85rem;
+    background: #faf6f2;
+    border-radius: 10px;
+}
+
+.account-order-item-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+}
+
+.account-order-item-meta {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.account-tracking {
+    font-size: 0.9rem;
+    color: var(--text);
+    background: #f0f9ff;
+    border: 1px solid #bce0f5;
+    border-radius: 10px;
+    padding: 0.65rem 1rem;
+}
+
+.account-order-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(140, 111, 95, 0.1);
+    padding-top: 1rem;
+    font-size: 0.95rem;
+    color: var(--muted);
+}
+
+.account-order-footer strong {
+    font-size: 1.05rem;
+    color: var(--text);
+}
+
+.status-confirmed {
+    background: #e8f4e8;
+    color: #276335;
+}

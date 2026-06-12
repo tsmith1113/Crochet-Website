@@ -1,95 +1,155 @@
-﻿<!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>My Account</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account - Stitched By Trae</title>
     <link rel="stylesheet" href="css/site.css">
 </head>
 <body>
 
-<h1>My Account</h1>
+<header>
+    <nav class="nav-bar">
+        <div class="nav-brand">
+            <span class="logo">🧶</span>
+            <h1>Stitched By Trae</h1>
+        </div>
+        <button id="nav-toggle" class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation">
+            <span></span><span></span><span></span>
+        </button>
+        <ul class="nav-links" id="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/#shop">Shop</a></li>
+            <li><a href="/account">My Account</a></li>
+            <li class="cart-nav-item">
+                <a href="/checkout" class="cart-nav-link">🛒<span id="cart-badge" class="cart-badge"></span></a>
+            </li>
+        </ul>
+    </nav>
+</header>
 
-<p id="user-name"></p>
-<p id="user-email"></p>
-
-<h2>My Orders</h2>
-
-<div id="order-history">
-    Loading orders...
+<div class="account-hero">
+    <div class="account-hero-content">
+        <h2 id="welcome-heading">My Account</h2>
+        <p id="hero-email"></p>
+    </div>
 </div>
 
-<button id="logout-btn">
-    Logout
-</button>
+<main class="account-body">
 
-<script>
-document.getElementById('logout-btn')
-.addEventListener('click', async () => {
+    <div class="account-info-card">
+        <div class="account-info-details">
+            <div class="account-avatar">
+                <span id="avatar-initial">?</span>
+            </div>
+            <div class="account-info-text">
+                <p class="account-name" id="user-name"></p>
+                <p class="account-email" id="user-email"></p>
+            </div>
+        </div>
+        <button class="account-logout-btn" id="logout-btn">Log Out</button>
+    </div>
 
-    await fetch('/logout', {
-        method: 'POST'
-    });
+    <section class="account-orders">
+        <h3>Order History</h3>
+        <div id="order-history">
+            <p class="account-loading">Loading orders...</p>
+        </div>
+    </section>
 
-    window.location.href = '/';
-});
-</script>
+</main>
 
+<footer>
+    <p>© 2026 Stitched By Trae. Handmade with ❤️</p>
+</footer>
+
+<script src="site.js"></script>
 <script>
 async function loadUser() {
-    const response = await fetch('/me');
-    const data = await response.json();
+    const res = await fetch('/me');
+    const data = await res.json();
 
     if (!data.loggedIn) {
         window.location.href = '/login';
         return;
     }
 
-    document.getElementById('user-name')
-        .textContent = data.user.name;
+    const name = data.user.name || '';
+    const email = data.user.email || '';
+    const firstName = name.split(' ')[0];
 
-    document.getElementById('user-email')
-        .textContent = data.user.email;
+    document.getElementById('welcome-heading').textContent = `Welcome back, ${firstName}!`;
+    document.getElementById('hero-email').textContent = email;
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('user-email').textContent = email;
+    document.getElementById('avatar-initial').textContent = name.charAt(0).toUpperCase();
 
-    const ordersResponse = await fetch('/my-orders');
-    const orders = await ordersResponse.json();
-
-    const orderHistory =
-        document.getElementById('order-history');
+    const ordersRes = await fetch('/my-orders');
+    const orders = await ordersRes.json();
+    const orderHistory = document.getElementById('order-history');
 
     if (!orders.length) {
-        orderHistory.innerHTML =
-            '<p>No orders yet.</p>';
-    } else {
-        orderHistory.innerHTML = orders.map(order => {
-
-    const items = JSON.parse(order.items || '[]');
-
-    const itemHtml = items.map(item => `
-        <div class="order-item">
-            <strong>${item.product}</strong>
-            <p>Colors: ${item.colors?.join(', ') || 'N/A'}</p>
-            <p>${item.size || item.headCircumference || ''}</p>
-        </div>
-    `).join('');
-
-    return `
-        <div class="order-card">
-            <h3>${order.order_number}</h3>
-
-            <p>Status: ${order.status}</p>
-
-            ${itemHtml}
-
-            <p><strong>Total:</strong> $${order.total}</p>
-
-            <p>
-                ${new Date(order.created_at)
-                    .toLocaleDateString()}
-            </p>
-        </div>
-    `;
-}).join('');
+        orderHistory.innerHTML = `
+            <div class="account-no-orders">
+                <p>You haven't placed any orders yet.</p>
+                <a href="/#shop" class="button">Shop Now</a>
+            </div>
+        `;
+        return;
     }
+
+    orderHistory.innerHTML = orders.map(order => {
+        const items = JSON.parse(order.items || '[]');
+        const date = new Date(order.created_at).toLocaleDateString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        });
+        const statusMap = {
+            confirmed: { label: 'Confirmed', cls: 'status-confirmed' },
+            shipped:   { label: 'Shipped',   cls: 'status-shipped'   },
+            payment_pending: { label: 'Payment Pending', cls: 'status-pending' },
+        };
+        const { label, cls } = statusMap[order.status] || { label: order.status, cls: '' };
+
+        const itemsHtml = items.map(item => `
+            <div class="account-order-item">
+                <span class="account-order-item-name">${item.product}</span>
+                <span class="account-order-item-meta">
+                    ${[
+                        item.colors?.join(', '),
+                        item.size || (item.headCircumference ? item.headCircumference + '"' : '')
+                    ].filter(Boolean).join(' · ')}
+                </span>
+            </div>
+        `).join('');
+
+        return `
+            <div class="account-order-card">
+                <div class="account-order-header">
+                    <div>
+                        <p class="account-order-number">${order.order_number}</p>
+                        <p class="account-order-date">${date}</p>
+                    </div>
+                    <span class="order-status-badge ${cls}">${label}</span>
+                </div>
+                <div class="account-order-items">${itemsHtml}</div>
+                ${order.tracking_number ? `
+                    <div class="account-tracking">
+                        📦 Tracking: <strong>${order.tracking_number}</strong>
+                    </div>
+                ` : ''}
+                <div class="account-order-footer">
+                    <span>Total</span>
+                    <strong>$${order.total}</strong>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetch('/logout', { method: 'POST' });
+    window.location.href = '/';
+});
 
 loadUser();
 </script>
