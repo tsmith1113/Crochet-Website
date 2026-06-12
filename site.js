@@ -157,14 +157,10 @@ const productImageSets = {
     'Pictures/Brown Side.JPG'
   ],
   ruffle: [
-    'Pictures/Red Hat Front .JPG',
-    'Pictures/Red Hat Head Down.JPG',
     'Pictures/Pink Hat Front View.JPG',
     'Pictures/Pink Bucket Hat Back C.JPG'
   ],
   ruffle2: [
-    'Pictures/Pink Hat Front View.JPG',
-    'Pictures/Pink Bucket Hat Back C.JPG',
     'Pictures/Red Hat Front .JPG',
     'Pictures/Red Hat Head Down.JPG'
   ],
@@ -1211,6 +1207,25 @@ async function updateAccountLink() {
 
 updateAccountLink();
 updateCartBadge();
+
+(function applyStartImage() {
+  const param = new URLSearchParams(window.location.search).get('img');
+  if (!param) return;
+  const filename = 'Pictures/' + param;
+  for (const key of Object.keys(productImageSets)) {
+    const imgEl = document.getElementById(`${key}-image`);
+    if (!imgEl) continue;
+    const images = productImageSets[key];
+    let idx = images.indexOf(filename);
+    if (idx < 0) {
+      images.unshift(filename);
+      idx = 0;
+    }
+    imageIndexes[key] = idx;
+    imgEl.src = filename;
+    break;
+  }
+})();
 
 async function autofillCheckout() {
   try {
