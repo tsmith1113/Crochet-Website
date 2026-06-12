@@ -68,6 +68,7 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
         if (orderRow) {
           const order = parseOrderRow(orderRow);
           await sendOrderConfirmationEmail(order);
+          sendOwnerNotificationEmail(order).catch(err => console.error('Owner notification failed:', err));
           await runAsync(
             'UPDATE orders SET status = ?, updated_at = ? WHERE id = ?',
             ['confirmed', new Date().toISOString(), orderId]
@@ -113,7 +114,7 @@ async function isWeeklyOrderLimitReached() {
   return row?.count >= WEEKLY_ORDER_LIMIT;
 }
 
-const dbPath = process.env.DB_PATH || './orders.db';
+const dbPath = process.env.DB_PATH || '/var/data/orders.db';
 const db = new sqlite3.Database(dbPath, err => {
   if (err) {
     console.error('Unable to open orders.db', err);
@@ -269,6 +270,57 @@ async function sendOrderConfirmationEmail(order) {
   });
 }
 
+async function sendOwnerNotificationEmail(order) {
+  const ownerEmail = process.env.OWNER_EMAIL || 'stitchedbytrae@gmail.com';
+  const itemsHtml = order.items.map((item, i) => `
+    <tr>
+      <td style="padding:6px 10px;">${i + 1}</td>
+      <td style="padding:6px 10px;">${item.product}</td>
+      <td style="padding:6px 10px;">${item.colors?.join(', ') || '—'}</td>
+      <td style="padding:6px 10px;">${item.headCircumference || item.size || '—'}</td>
+      <td style="padding:6px 10px;">$${getItemPrice(item)}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+      <h2 style="color:#9b6ea8;">🧶 New Order Received!</h2>
+      <p><strong>Order #:</strong> ${order.order_number}</p>
+      <p><strong>Date:</strong> ${new Date(order.created_at).toLocaleString()}</p>
+
+      <h3 style="margin-top:1.5rem;">Customer</h3>
+      <p>${order.full_name}<br>${order.email}</p>
+
+      <h3 style="margin-top:1.5rem;">Ship To</h3>
+      <p>${order.street}<br>${order.city}, ${order.state} ${order.postal}</p>
+
+      <h3 style="margin-top:1.5rem;">Items</h3>
+      <table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;">
+        <thead style="background:#f3eaf8;">
+          <tr>
+            <th style="padding:6px 10px;">#</th>
+            <th style="padding:6px 10px;">Product</th>
+            <th style="padding:6px 10px;">Colors</th>
+            <th style="padding:6px 10px;">Details</th>
+            <th style="padding:6px 10px;">Price</th>
+          </tr>
+        </thead>
+        <tbody>${itemsHtml}</tbody>
+      </table>
+
+      <p style="margin-top:1rem;"><strong>Shipping:</strong> ${order.shipping} — $${order.shipping_cost}</p>
+      <p><strong>Total Charged:</strong> $${order.total}</p>
+    </div>
+  `;
+
+  return resend.emails.send({
+    from: 'orders@stitchedbytrae.com',
+    to: ownerEmail,
+    subject: `New Order #${order.order_number} from ${order.full_name}`,
+    html
+  });
+}
+
 async function sendShippingEmail(order, trackingNumber) {
   return resend.emails.send({
     from: 'orders@stitchedbytrae.com',
@@ -421,6 +473,12 @@ app.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({
         error: 'Please verify your email before logging in. Check your inbox for a verification link.'
       });
+    }
+
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail && user.email.toLowerCase() === adminEmail.toLowerCase() && !user.is_admin) {
+      await runAsync('UPDATE users SET is_admin = 1 WHERE id = ?', [user.id]);
+      user.is_admin = 1;
     }
 
     const token = jwt.sign(
@@ -732,30 +790,17 @@ app.post('/orders', async (req, res) => {
       return res.status(429).json({ error: 'Weekly order limit reached. Please try again next week.' });
     }
     try {
-  const token = req.cookies.token;
-
-  if (token) {
-    const decoded = jwt.verify(
-      token,
-      JWT_SECRET
-    );
-
-    await runAsync(
-      `UPDATE users
-       SET street = ?, city = ?, state = ?, postal = ?
-       WHERE id = ?`,
-      [
-        street,
-        city,
-        state,
-        postal,
-        decoded.userId
-      ]
-    );
-  }
-} catch (err) {
-  console.error('Unable to save customer address:', err);
-}
+      const token = req.cookies.token;
+      if (token) {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        await runAsync(
+          `UPDATE users SET name = ?, street = ?, city = ?, state = ?, postal = ? WHERE id = ?`,
+          [fullName || null, street, city, state, postal, decoded.userId]
+        );
+      }
+    } catch (err) {
+      console.error('Unable to save customer address:', err);
+    }
 
     const orderNumber = createOrderNumber();
     const now = new Date().toISOString();
@@ -801,6 +846,7 @@ app.post('/orders', async (req, res) => {
     };
 
     await sendOrderConfirmationEmail(order);
+    sendOwnerNotificationEmail(order).catch(err => console.error('Owner notification failed:', err));
 
     res.json({ orderNumber, message: 'Order saved and confirmation email sent.' });
   } catch (error) {
@@ -839,31 +885,18 @@ app.post('/create-checkout-session', async (req, res) => {
   });
 }
 
-try {
-  const token = req.cookies.token;
-
-  if (token) {
-    const decoded = jwt.verify(
-      token,
-      JWT_SECRET
-    );
-
-    await runAsync(
-      `UPDATE users
-       SET street = ?, city = ?, state = ?, postal = ?
-       WHERE id = ?`,
-      [
-        street,
-        city,
-        state,
-        postal,
-        decoded.userId
-      ]
-    );
-  }
-} catch (err) {
-  console.error('Unable to save customer address:', err);
-}
+    try {
+      const token = req.cookies.token;
+      if (token) {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        await runAsync(
+          `UPDATE users SET name = ?, street = ?, city = ?, state = ?, postal = ? WHERE id = ?`,
+          [fullName || null, street, city, state, postal, decoded.userId]
+        );
+      }
+    } catch (err) {
+      console.error('Unable to save customer address:', err);
+    }
 
     const orderNumber = createOrderNumber();
     const now = new Date().toISOString();
