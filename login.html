@@ -67,7 +67,7 @@
 
 <script>
 function togglePassword(btn) {
-    const input = btn.previousElementSibling;
+    const input = btn.closest('.password-field').querySelector('input');
     const isShowing = input.type === 'text';
     input.type = isShowing ? 'password' : 'text';
     btn.textContent = isShowing ? 'Show' : 'Hide';
@@ -106,8 +106,9 @@ document.getElementById('login-form')
     if (data.success) {
         window.location.href = 'index.html';
     } else {
-        document.getElementById('login-message')
-            .textContent = data.error;
+        const loginMsg = document.getElementById('login-message');
+        loginMsg.style.color = 'red';
+        loginMsg.textContent = data.error;
     }
 });
 </script>

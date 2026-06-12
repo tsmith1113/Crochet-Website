@@ -80,7 +80,7 @@
 
 <script>
 function togglePassword(btn) {
-    const input = btn.previousElementSibling;
+    const input = btn.closest('.password-field').querySelector('input');
     const isShowing = input.type === 'text';
     input.type = isShowing ? 'password' : 'text';
     btn.textContent = isShowing ? 'Show' : 'Hide';

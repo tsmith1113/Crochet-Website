@@ -162,6 +162,7 @@ db.run(`
 db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`, () => {});
 db.run(`ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1`, () => {});
 db.run(`ALTER TABLE users ADD COLUMN verification_token TEXT`, () => {});
+db.run(`CREATE TABLE IF NOT EXISTS app_secrets (key TEXT PRIMARY KEY, value TEXT)`, () => {});
 
 const runAsync = (sql, params = []) => new Promise((resolve, reject) => {
   db.run(sql, params, function (err) {
@@ -189,7 +190,7 @@ async function requireAdmin(req, res, next) {
     const token = req.cookies.token;
     if (!token) return res.status(401).json({ error: 'Not logged in' });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await getAsync('SELECT * FROM users WHERE id = ?', [decoded.userId]);
 
     if (!user || !user.is_admin) {
@@ -379,7 +380,7 @@ app.post('/login', loginLimiter, async (req, res) => {
 
     const token = jwt.sign(
       { userId: user.id },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       {
         expiresIn: rememberMe ? '30d' : '1d'
       }
@@ -417,7 +418,7 @@ app.post('/reset-password', async (req, res) => {
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET
+      JWT_SECRET
     );
 
     const hashedPassword =
@@ -456,7 +457,7 @@ app.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
 
     const token = jwt.sign(
       { userId: user.id },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '1h' }
     );
 
@@ -490,7 +491,7 @@ app.get('/me', async (req, res) => {
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET
+      JWT_SECRET
     );
 
     const user = await getAsync(
@@ -532,7 +533,7 @@ app.post('/update-profile', async (req, res) => {
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET
+      JWT_SECRET
     );
 
     const {
@@ -608,7 +609,7 @@ app.get('/my-orders', async (req, res) => {
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET
+      JWT_SECRET
     );
 
     const user = await getAsync(
@@ -687,7 +688,7 @@ app.post('/orders', async (req, res) => {
   if (token) {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET
+      JWT_SECRET
     );
 
     await runAsync(
@@ -796,7 +797,7 @@ try {
   if (token) {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET
+      JWT_SECRET
     );
 
     await runAsync(
@@ -894,6 +895,21 @@ app.post('/orders/:id/ship', requireAdmin, async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
-  console.log(`Server running on port ${process.env.PORT || 3000}`);
-});
+let JWT_SECRET;
+
+async function startServer() {
+  const row = await getAsync('SELECT value FROM app_secrets WHERE key = ?', ['jwt_secret']);
+  if (row) {
+    JWT_SECRET = row.value;
+  } else {
+    JWT_SECRET = crypto.randomBytes(64).toString('hex');
+    await runAsync('INSERT INTO app_secrets (key, value) VALUES (?, ?)', ['jwt_secret', JWT_SECRET]);
+    console.log('Generated new JWT secret and saved to database.');
+  }
+
+  app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
+    console.log(`Server running on port ${process.env.PORT || 3000}`);
+  });
+}
+
+startServer();
