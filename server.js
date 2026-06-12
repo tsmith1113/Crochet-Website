@@ -10,8 +10,9 @@ import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import crypto from 'crypto';
 
-
 dotenv.config();
+
+let JWT_SECRET;
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -895,21 +896,24 @@ app.post('/orders/:id/ship', requireAdmin, async (req, res) => {
   }
 });
 
-let JWT_SECRET;
-
 async function startServer() {
-  const row = await getAsync('SELECT value FROM app_secrets WHERE key = ?', ['jwt_secret']);
-  if (row) {
-    JWT_SECRET = row.value;
-  } else {
-    JWT_SECRET = crypto.randomBytes(64).toString('hex');
-    await runAsync('INSERT INTO app_secrets (key, value) VALUES (?, ?)', ['jwt_secret', JWT_SECRET]);
-    console.log('Generated new JWT secret and saved to database.');
-  }
+  try {
+    const row = await getAsync('SELECT value FROM app_secrets WHERE key = ?', ['jwt_secret']);
+    if (row) {
+      JWT_SECRET = row.value;
+    } else {
+      JWT_SECRET = crypto.randomBytes(64).toString('hex');
+      await runAsync('INSERT INTO app_secrets (key, value) VALUES (?, ?)', ['jwt_secret', JWT_SECRET]);
+      console.log('Generated new JWT secret and saved to database.');
+    }
 
-  app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
-    console.log(`Server running on port ${process.env.PORT || 3000}`);
-  });
+    app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
+      console.log(`Server running on port ${process.env.PORT || 3000}`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
 }
 
 startServer();
