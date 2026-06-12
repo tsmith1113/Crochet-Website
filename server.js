@@ -278,9 +278,38 @@ async function sendShippingEmail(order, trackingNumber) {
   });
 }
 
+async function sendVerificationEmail(email, name, token) {
+  const origin = process.env.SITE_URL || 'http://localhost:3000';
+  return resend.emails.send({
+    from: 'orders@stitchedbytrae.com',
+    replyTo: 'stitchedbytrae@gmail.com',
+    to: email,
+    subject: 'Verify your Stitched By Trae account',
+    html: `
+      <h2>Welcome to Stitched By Trae! 🧶</h2>
+      <p>Hi ${name},</p>
+      <p>Thanks for creating an account! Please click the link below to verify your email address.</p>
+      <p><a href="${origin}/verify-email.html?token=${token}" style="background:#9b6ea8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0;">Verify My Email</a></p>
+      <p>If you did not create an account, you can safely ignore this email.</p>
+    `
+  });
+}
+
 app.post('/signup', signupLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
+
+    const existing = await getAsync('SELECT * FROM users WHERE email = ?', [email]);
+
+    if (existing) {
+      if (!existing.email_verified) {
+        const newToken = crypto.randomBytes(32).toString('hex');
+        await runAsync('UPDATE users SET verification_token = ? WHERE id = ?', [newToken, existing.id]);
+        await sendVerificationEmail(email, existing.name, newToken);
+        return res.json({ success: true, message: 'A verification email has been resent. Please check your inbox.' });
+      }
+      return res.status(400).json({ error: 'An account with that email already exists.' });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -290,27 +319,12 @@ app.post('/signup', signupLimiter, async (req, res) => {
       [name, email, hashedPassword, verificationToken]
     );
 
-    const origin = process.env.SITE_URL || 'http://localhost:3000';
-    await resend.emails.send({
-      from: 'orders@stitchedbytrae.com',
-      replyTo: 'stitchedbytrae@gmail.com',
-      to: email,
-      subject: 'Verify your Stitched By Trae account',
-      html: `
-        <h2>Welcome to Stitched By Trae! 🧶</h2>
-        <p>Hi ${name},</p>
-        <p>Thanks for creating an account! Please click the link below to verify your email address.</p>
-        <p><a href="${origin}/verify-email.html?token=${verificationToken}" style="background:#9b6ea8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0;">Verify My Email</a></p>
-        <p>If you did not create an account, you can safely ignore this email.</p>
-      `
-    });
+    await sendVerificationEmail(email, name, verificationToken);
 
     res.json({ success: true, message: 'Account created! Please check your email to verify your account before logging in.' });
   } catch (err) {
     console.error(err);
-    res.status(400).json({
-      error: 'An account with that email already exists.'
-    });
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 
