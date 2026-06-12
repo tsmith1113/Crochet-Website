@@ -292,9 +292,12 @@ function getSelectedColors() {
 
 function getMeasurementValues() {
   if (!customForm) return { headCircumference: '', size: '' };
-  const headCircumference = customForm.querySelector('input[name="headCircumference"]').value.trim();
-  const size = customForm.querySelector('select[name="size"]').value;
-  return { headCircumference, size };
+  const circumInput = customForm.querySelector('input[name="headCircumference"]');
+  const sizeInput = customForm.querySelector('select[name="size"]');
+  return {
+    headCircumference: circumInput ? circumInput.value.trim() : '',
+    size: sizeInput ? sizeInput.value : ''
+  };
 }
 
 function updateMeasurementInputs() {
