@@ -302,6 +302,7 @@ async function sendVerificationEmail(email, name, token) {
 app.post('/signup', signupLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    console.log('Signup attempt:', email);
 
     const existing = await getAsync('SELECT * FROM users WHERE email = ?', [email]);
 
@@ -309,7 +310,7 @@ app.post('/signup', signupLimiter, async (req, res) => {
       if (!existing.email_verified) {
         const newToken = crypto.randomBytes(32).toString('hex');
         await runAsync('UPDATE users SET verification_token = ? WHERE id = ?', [newToken, existing.id]);
-        await sendVerificationEmail(email, existing.name, newToken);
+        try { await sendVerificationEmail(email, existing.name, newToken); } catch (e) { console.error('Resend error:', e); }
         return res.json({ success: true, message: 'A verification email has been resent. Please check your inbox.' });
       }
       return res.status(400).json({ error: 'An account with that email already exists.' });
@@ -323,11 +324,11 @@ app.post('/signup', signupLimiter, async (req, res) => {
       [name, email, hashedPassword, verificationToken]
     );
 
-    await sendVerificationEmail(email, name, verificationToken);
+    try { await sendVerificationEmail(email, name, verificationToken); } catch (e) { console.error('Resend error:', e); }
 
     res.json({ success: true, message: 'Account created! Please check your email to verify your account before logging in.' });
   } catch (err) {
-    console.error(err);
+    console.error('Signup error:', err.message, err.stack);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
