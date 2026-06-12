@@ -137,8 +137,8 @@ const stripeConfig = {
     "Scrunchie": "price_1Tf0rJK7MUFGeMDDXDu3iMZr"
   },
 
-  successUrl: window.location.origin + "/checkout.html?payment=success",
-  cancelUrl: window.location.origin + "/checkout.html?payment=cancel"
+  successUrl: window.location.origin + "/checkout?payment=success",
+  cancelUrl: window.location.origin + "/checkout?payment=cancel"
 };
 
 const billingDetailsKey = 'stitchedByTraeBillingDetails';
@@ -1089,7 +1089,7 @@ if (goCheckoutButton) {
       addCurrentOrderItem();
     }
 
-    window.location.href = 'checkout.html';
+    window.location.href = '/checkout';
   });
 }
 
@@ -1195,7 +1195,7 @@ async function updateAccountLink() {
 
     if (data.loggedIn) {
       accountLink.innerHTML = `
-        <a href="account.html">
+        <a href="/account">
           👤 ${data.user.name}
         </a>
       `;

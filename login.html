@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -46,7 +46,7 @@
             </button>
 
             <p>
-                <a href="forgot-password.html">Forgot your password?</a>
+                <a href="/forgot-password">Forgot your password?</a>
             </p>
 
         </form>
@@ -55,11 +55,11 @@
 
         <p>
             Don't have an account?
-            <a href="signup.html">Create One</a>
+            <a href="/signup">Create One</a>
         </p>
 
         <p>
-            <a href="index.html" class="continue-guest">Continue without logging in</a>
+            <a href="/" class="continue-guest">Continue without logging in</a>
         </p>
 
     </div>
@@ -104,7 +104,7 @@ document.getElementById('login-form')
     const data = await response.json();
 
     if (data.success) {
-        window.location.href = 'index.html';
+        window.location.href = '/';
     } else {
         const loginMsg = document.getElementById('login-message');
         loginMsg.style.color = 'red';

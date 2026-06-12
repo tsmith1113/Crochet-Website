@@ -82,7 +82,6 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
   res.json({ received: true });
 });
 app.use(express.json());
-app.use(express.static('.'));
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -294,7 +293,7 @@ async function sendVerificationEmail(email, name, token) {
       <h2>Welcome to Stitched By Trae! 🧶</h2>
       <p>Hi ${name},</p>
       <p>Thanks for creating an account! Please click the link below to verify your email address.</p>
-      <p><a href="${origin}/verify-email.html?token=${token}" style="background:#9b6ea8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0;">Verify My Email</a></p>
+      <p><a href="${origin}/verify-email?token=${token}" style="background:#9b6ea8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0;">Verify My Email</a></p>
       <p>If you did not create an account, you can safely ignore this email.</p>
     `
   });
@@ -335,18 +334,18 @@ app.post('/signup', signupLimiter, async (req, res) => {
 
 app.get('/verify-email', async (req, res) => {
   const { token } = req.query;
-  if (!token) return res.redirect('/login.html?error=invalid');
+  if (!token) return res.redirect('/login?error=invalid');
   try {
     const user = await getAsync('SELECT * FROM users WHERE verification_token = ?', [token]);
-    if (!user) return res.redirect('/login.html?error=invalid');
+    if (!user) return res.redirect('/login?error=invalid');
     await runAsync(
       'UPDATE users SET email_verified = 1, verification_token = NULL WHERE id = ?',
       [user.id]
     );
-    res.redirect('/login.html?verified=1');
+    res.redirect('/login?verified=1');
   } catch (err) {
     console.error(err);
-    res.redirect('/login.html?error=invalid');
+    res.redirect('/login?error=invalid');
   }
 });
 
@@ -473,7 +472,7 @@ app.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       subject: 'Reset your Stitched By Trae password',
       html: `
         <p>Click the link below to reset your password. This link expires in 1 hour.</p>
-        <p><a href="${origin}/reset-password.html?token=${token}">Reset Password</a></p>
+        <p><a href="${origin}/reset-password?token=${token}">Reset Password</a></p>
         <p>If you did not request this, you can safely ignore this email.</p>
       `
     });
@@ -573,7 +572,7 @@ app.post('/update-profile', async (req, res) => {
 app.get('/order-lookup', orderLookupLimiter, async (req, res) => {
   const { orderNumber, lastName } = req.query;
   if (!orderNumber || !lastName) {
-    return res.status(400).json({ error: 'Order number and last name are required.' });
+    return res.sendFile('order-lookup.html', { root: process.cwd() });
   }
   try {
     const order = await getAsync('SELECT * FROM orders WHERE order_number = ?', [orderNumber.trim()]);
@@ -855,8 +854,8 @@ try {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${origin}/success.html`,
-      cancel_url: `${origin}/checkout.html?payment=cancel`,
+      success_url: `${origin}/success`,
+      cancel_url: `${origin}/checkout?payment=cancel`,
       customer_email: email,
       metadata: {
         orderNumber,
@@ -898,6 +897,16 @@ app.post('/orders/:id/ship', requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Unable to mark order as shipped.' });
   }
 });
+
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html')) {
+    const clean = req.path.slice(0, -5) || '/';
+    const qs = req.url.slice(req.path.length);
+    return res.redirect(301, clean + qs);
+  }
+  next();
+});
+app.use(express.static('.', { extensions: ['html'] }));
 
 async function startServer() {
   try {
