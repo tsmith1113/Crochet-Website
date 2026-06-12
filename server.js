@@ -163,7 +163,10 @@ db.run(`
 db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`, () => {});
 db.run(`ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1`, () => {});
 db.run(`ALTER TABLE users ADD COLUMN verification_token TEXT`, () => {});
-db.run(`CREATE TABLE IF NOT EXISTS app_secrets (key TEXT PRIMARY KEY, value TEXT)`, () => {});
+db.run(`CREATE TABLE IF NOT EXISTS app_secrets (key TEXT PRIMARY KEY, value TEXT)`, (err) => {
+  if (err) console.error('Failed to create app_secrets table:', err);
+  else startServer();
+});
 
 const runAsync = (sql, params = []) => new Promise((resolve, reject) => {
   db.run(sql, params, function (err) {
@@ -915,5 +918,3 @@ async function startServer() {
     process.exit(1);
   }
 }
-
-startServer();
