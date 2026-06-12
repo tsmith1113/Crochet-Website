@@ -16,12 +16,20 @@
 
         <form id="signup-form">
 
-            <input
-                type="text"
-                id="name"
-                placeholder="Full Name"
-                required
-            >
+            <div class="name-fields">
+                <input
+                    type="text"
+                    id="first-name"
+                    placeholder="First Name"
+                    required
+                >
+                <input
+                    type="text"
+                    id="last-name"
+                    placeholder="Last Name"
+                    required
+                >
+            </div>
 
             <input
                 type="email"
@@ -101,7 +109,7 @@ document.getElementById('signup-form')
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            name: document.getElementById('name').value,
+            name: document.getElementById('first-name').value.trim() + ' ' + document.getElementById('last-name').value.trim(),
             email: document.getElementById('email').value,
             password
         })
@@ -110,11 +118,13 @@ document.getElementById('signup-form')
     const data = await response.json();
 
     if (data.success) {
-    window.location.href = 'index.html';
-} else {
-    document.getElementById('signup-message')
-        .textContent = data.error;
-}
+        document.getElementById('signup-message').style.color = '#5a3e6b';
+        document.getElementById('signup-message').textContent = data.message;
+        document.getElementById('signup-form').style.display = 'none';
+    } else {
+        document.getElementById('signup-message').style.color = 'red';
+        document.getElementById('signup-message').textContent = data.error;
+    }
 });
 </script>
 

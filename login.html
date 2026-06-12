@@ -73,6 +73,16 @@ function togglePassword(btn) {
     btn.textContent = isShowing ? 'Show' : 'Hide';
 }
 
+const params = new URLSearchParams(window.location.search);
+const msg = document.getElementById('login-message');
+if (params.get('verified') === '1') {
+    msg.style.color = '#5a3e6b';
+    msg.textContent = 'Email verified! You can now log in.';
+} else if (params.get('error') === 'invalid') {
+    msg.style.color = 'red';
+    msg.textContent = 'That verification link is invalid or has already been used.';
+}
+
 document.getElementById('login-form')
 .addEventListener('submit', async (e) => {
 

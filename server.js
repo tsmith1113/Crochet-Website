@@ -8,6 +8,7 @@ import sqlite3 from 'sqlite3';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
+import crypto from 'crypto';
 
 
 dotenv.config();
@@ -159,6 +160,8 @@ db.run(`
 `);
 
 db.run(`ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0`, () => {});
+db.run(`ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1`, () => {});
+db.run(`ALTER TABLE users ADD COLUMN verification_token TEXT`, () => {});
 
 const runAsync = (sql, params = []) => new Promise((resolve, reject) => {
   db.run(sql, params, function (err) {
@@ -280,18 +283,51 @@ app.post('/signup', signupLimiter, async (req, res) => {
     const { name, email, password } = req.body;
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
 
     await runAsync(
-      'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-      [name, email, hashedPassword]
+      'INSERT INTO users (name, email, password, email_verified, verification_token) VALUES (?, ?, ?, 0, ?)',
+      [name, email, hashedPassword, verificationToken]
     );
 
-    res.json({ success: true });
+    const origin = process.env.SITE_URL || 'http://localhost:3000';
+    await resend.emails.send({
+      from: 'orders@stitchedbytrae.com',
+      replyTo: 'stitchedbytrae@gmail.com',
+      to: email,
+      subject: 'Verify your Stitched By Trae account',
+      html: `
+        <h2>Welcome to Stitched By Trae! 🧶</h2>
+        <p>Hi ${name},</p>
+        <p>Thanks for creating an account! Please click the link below to verify your email address.</p>
+        <p><a href="${origin}/verify-email.html?token=${verificationToken}" style="background:#9b6ea8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin:16px 0;">Verify My Email</a></p>
+        <p>If you did not create an account, you can safely ignore this email.</p>
+      `
+    });
+
+    res.json({ success: true, message: 'Account created! Please check your email to verify your account before logging in.' });
   } catch (err) {
     console.error(err);
     res.status(400).json({
-      error: 'Account already exists'
+      error: 'An account with that email already exists.'
     });
+  }
+});
+
+app.get('/verify-email', async (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.redirect('/login.html?error=invalid');
+  try {
+    const user = await getAsync('SELECT * FROM users WHERE verification_token = ?', [token]);
+    if (!user) return res.redirect('/login.html?error=invalid');
+    await runAsync(
+      'UPDATE users SET email_verified = 1, verification_token = NULL WHERE id = ?',
+      [user.id]
+    );
+    res.redirect('/login.html?verified=1');
+  } catch (err) {
+    console.error(err);
+    res.redirect('/login.html?error=invalid');
   }
 });
 
@@ -318,6 +354,12 @@ app.post('/login', loginLimiter, async (req, res) => {
     if (!validPassword) {
       return res.status(401).json({
         error: 'Invalid email or password'
+      });
+    }
+
+    if (!user.email_verified) {
+      return res.status(401).json({
+        error: 'Please verify your email before logging in. Check your inbox for a verification link.'
       });
     }
 

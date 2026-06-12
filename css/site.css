@@ -1344,6 +1344,12 @@ footer {
     border-radius: 8px;
 }
 
+.name-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
 .password-field {
     position: relative;
     display: flex;
