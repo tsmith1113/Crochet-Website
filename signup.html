@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -17,71 +17,44 @@
         <form id="signup-form">
 
             <div class="name-fields">
-                <input
-                    type="text"
-                    id="first-name"
-                    placeholder="First Name"
-                    required
-                >
-                <input
-                    type="text"
-                    id="last-name"
-                    placeholder="Last Name"
-                    required
-                >
+                <input type="text" id="first-name" placeholder="First Name" required>
+                <input type="text" id="last-name" placeholder="Last Name" required>
             </div>
 
-            <input
-                type="email"
-                id="email"
-                placeholder="Email Address"
-                required
-            >
+            <input type="email" id="email" placeholder="Email Address" required>
 
             <div class="password-field">
-                <input
-                    type="password"
-                    id="password"
-                    placeholder="Password"
-                    required
-                >
+                <input type="password" id="password" placeholder="Password" required autocomplete="new-password">
                 <button type="button" class="show-password-toggle" aria-label="Toggle password visibility" onclick="togglePassword(this)">Show</button>
             </div>
 
+            <ul class="pw-rules" id="pw-rules">
+                <li id="rule-len">At least 8 characters</li>
+                <li id="rule-upper">One uppercase letter (A–Z)</li>
+                <li id="rule-lower">One lowercase letter (a–z)</li>
+                <li id="rule-number">One number (0–9)</li>
+                <li id="rule-special">One special character (!@#$%...)</li>
+            </ul>
+
             <div class="password-field">
-                <input
-                    type="password"
-                    id="confirm-password"
-                    placeholder="Confirm Password"
-                    required
-                >
+                <input type="password" id="confirm-password" placeholder="Confirm Password" required autocomplete="new-password">
                 <button type="button" class="show-password-toggle" aria-label="Toggle password visibility" onclick="togglePassword(this)">Show</button>
             </div>
 
-            <button type="submit" class="button">
-                Create Account
-            </button>
+            <button type="submit" class="button">Create Account</button>
 
         </form>
 
         <p id="signup-message"></p>
 
         <div id="signup-links">
-            <p>
-                Already have an account?
-                <a href="/login">Login</a>
-            </p>
-
-            <p>
-                <a href="/" class="continue-guest">Continue without logging in</a>
-            </p>
+            <p>Already have an account? <a href="/login">Login</a></p>
+            <p><a href="/" class="continue-guest">Continue without logging in</a></p>
         </div>
 
         <div id="signup-success-links" style="display:none; text-align:center;">
             <a href="/login" class="button" style="display:inline-block; margin-bottom:1rem;">Go to Login</a>
-            <p>
-                <a href="/" class="continue-guest">Continue without logging in</a>
-            </p>
+            <p><a href="/" class="continue-guest">Continue without logging in</a></p>
         </div>
 
     </div>
@@ -95,28 +68,50 @@ function togglePassword(btn) {
     btn.textContent = isShowing ? 'Show' : 'Hide';
 }
 
-document.getElementById('signup-form')
-.addEventListener('submit', async (e) => {
+const passwordRules = [
+    { id: 'rule-len',     test: p => p.length >= 8 },
+    { id: 'rule-upper',   test: p => /[A-Z]/.test(p) },
+    { id: 'rule-lower',   test: p => /[a-z]/.test(p) },
+    { id: 'rule-number',  test: p => /[0-9]/.test(p) },
+    { id: 'rule-special', test: p => /[^A-Za-z0-9]/.test(p) },
+];
 
+function checkPasswordStrength(password) {
+    passwordRules.forEach(rule => {
+        document.getElementById(rule.id).classList.toggle('met', rule.test(password));
+    });
+}
+
+function isPasswordValid(password) {
+    return passwordRules.every(rule => rule.test(password));
+}
+
+document.getElementById('password').addEventListener('input', e => {
+    checkPasswordStrength(e.target.value);
+});
+
+document.getElementById('signup-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const password =
-        document.getElementById('password').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const msg = document.getElementById('signup-message');
 
-    const confirmPassword =
-        document.getElementById('confirm-password').value;
+    if (!isPasswordValid(password)) {
+        msg.style.color = 'red';
+        msg.textContent = 'Please meet all password requirements before continuing.';
+        return;
+    }
 
     if (password !== confirmPassword) {
-        document.getElementById('signup-message')
-            .textContent = 'Passwords do not match.';
+        msg.style.color = 'red';
+        msg.textContent = 'Passwords do not match.';
         return;
     }
 
     const response = await fetch('/signup', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             name: document.getElementById('first-name').value.trim() + ' ' + document.getElementById('last-name').value.trim(),
             email: document.getElementById('email').value,
@@ -127,14 +122,14 @@ document.getElementById('signup-form')
     const data = await response.json();
 
     if (data.success) {
-        document.getElementById('signup-message').style.color = '#5a3e6b';
-        document.getElementById('signup-message').textContent = data.message;
+        msg.style.color = '#5a3e6b';
+        msg.textContent = data.message;
         document.getElementById('signup-form').style.display = 'none';
         document.getElementById('signup-links').style.display = 'none';
         document.getElementById('signup-success-links').style.display = 'block';
     } else {
-        document.getElementById('signup-message').style.color = 'red';
-        document.getElementById('signup-message').textContent = data.error;
+        msg.style.color = 'red';
+        msg.textContent = data.error;
     }
 });
 </script>

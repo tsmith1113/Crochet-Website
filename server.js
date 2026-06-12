@@ -113,7 +113,8 @@ async function isWeeklyOrderLimitReached() {
   return row?.count >= WEEKLY_ORDER_LIMIT;
 }
 
-const db = new sqlite3.Database('./orders.db', err => {
+const dbPath = process.env.DB_PATH || './orders.db';
+const db = new sqlite3.Database(dbPath, err => {
   if (err) {
     console.error('Unable to open orders.db', err);
     process.exit(1);
@@ -300,10 +301,24 @@ async function sendVerificationEmail(email, name, token) {
   });
 }
 
+function isPasswordStrong(password) {
+  return (
+    typeof password === 'string' &&
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[0-9]/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
+  );
+}
+
 app.post('/signup', signupLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    console.log('Signup attempt:', email);
+
+    if (!isPasswordStrong(password)) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.' });
+    }
 
     const existing = await getAsync('SELECT * FROM users WHERE email = ?', [email]);
 
@@ -445,6 +460,10 @@ app.post('/reset-password', async (req, res) => {
   try {
 
     const { token, password } = req.body;
+
+    if (!isPasswordStrong(password)) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.' });
+    }
 
     const decoded = jwt.verify(
       token,
@@ -765,7 +784,6 @@ app.post('/orders', async (req, res) => {
       ]
     );
 
-    console.log('Order created:', email);
 
     const order = {
       order_number: orderNumber,

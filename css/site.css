@@ -383,6 +383,15 @@ header {
   font-size: 0.95rem;
 }
 
+.summary-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  color: var(--muted);
+  padding: 0.4rem 0;
+}
+
 .summary-total {
   display: flex;
   justify-content: space-between;
@@ -1118,8 +1127,8 @@ footer {
   border: none;
   background: rgba(0, 0, 0, 0.55);
   color: white;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   cursor: pointer;
   font-size: 1rem;
@@ -1350,6 +1359,12 @@ footer {
     gap: 0.75rem;
 }
 
+@media (max-width: 480px) {
+    .name-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
 .password-field {
     position: relative;
     display: flex;
@@ -1368,10 +1383,13 @@ footer {
     border: none;
     cursor: pointer;
     color: #9b6ea8;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    padding: 4px 6px;
+    padding: 0.6rem 0.75rem;
     user-select: none;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
 }
 
 .show-password-toggle:hover {
@@ -1391,6 +1409,43 @@ footer {
 
 .continue-guest:hover {
     color: #888;
+}
+
+.pw-rules {
+    list-style: none;
+    padding: 0.6rem 0.75rem;
+    margin: -0.25rem 0 0;
+    background: #faf6f2;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.pw-rules li {
+    font-size: 0.82rem;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: color 0.2s;
+}
+
+.pw-rules li::before {
+    content: '✗';
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #ccc;
+    flex-shrink: 0;
+}
+
+.pw-rules li.met {
+    color: #276335;
+}
+
+.pw-rules li.met::before {
+    content: '✓';
+    color: #276335;
 }
 
 .order-card {

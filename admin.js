@@ -130,11 +130,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     const res = await fetch('/me');
     const data = await res.json();
     if (!data.loggedIn || !data.user.is_admin) {
-      window.location.href = 'login.html';
+      window.location.href = '/login';
       return;
     }
   } catch {
-    window.location.href = 'login.html';
+    window.location.href = '/login';
     return;
   }
   loadOrders();

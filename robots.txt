@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /success
+Disallow: /verify-email
+Disallow: /reset-password
+
+Sitemap: https://www.stitchedbytrae.com/sitemap.xml

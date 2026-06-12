@@ -326,7 +326,7 @@ function updateMeasurementInputs() {
 
 function getSelectedProduct() {
   if (!customForm) return '';
-  return customForm.querySelector('select[name="product"]').value;
+  return customForm.querySelector('select[name="product"]')?.value || '';
 }
 
 function requiresMeasurements(product) {
@@ -639,6 +639,36 @@ async function handleStripeCheckout() {
     return;
   }
 
+  const lineItems = getStripeLineItems();
+  if (payload.shippingCost > 0) {
+    const shippingLabel = payload.shipping === 'express' ? 'Express Shipping (2–3 days)' : 'Standard Shipping (5–7 days)';
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: { name: shippingLabel },
+        unit_amount: Math.round(payload.shippingCost * 100)
+      },
+      quantity: 1
+    });
+  }
+
+  const extraColorCount = payload.items.filter(item =>
+    item.product === 'Ruffle Bucket Hat' &&
+    item.colors?.length === 3 &&
+    item.bucketHatStyle === 'main-outer-top' &&
+    !item.allOneColor
+  ).length;
+  if (extraColorCount > 0) {
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: { name: 'Extra Color Surcharge' },
+        unit_amount: 200
+      },
+      quantity: extraColorCount
+    });
+  }
+
   const response = await fetch('/create-checkout-session', {
     method: 'POST',
     headers: {
@@ -646,7 +676,7 @@ async function handleStripeCheckout() {
     },
     body: JSON.stringify({
       ...payload,
-      lineItems: getStripeLineItems()
+      lineItems
     })
   });
 
@@ -1161,7 +1191,10 @@ if (checkoutForm) {
 }
 
 if (stripeCheckoutButton) {
-  stripeCheckoutButton.addEventListener('click', handleStripeCheckout);
+  stripeCheckoutButton.addEventListener('click', () => {
+    if (checkoutForm && !checkoutForm.reportValidity()) return;
+    handleStripeCheckout();
+  });
 }
 
 if (sendReceiptButton) {
