@@ -335,9 +335,11 @@ app.post('/signup', signupLimiter, async (req, res) => {
 
 app.get('/verify-email', async (req, res) => {
   const { token } = req.query;
+  console.log('Verify email attempt, token:', token);
   if (!token) return res.redirect('/login?error=invalid');
   try {
     const user = await getAsync('SELECT * FROM users WHERE verification_token = ?', [token]);
+    console.log('Verify email user found:', user ? user.email : 'none');
     if (!user) return res.redirect('/login?error=invalid');
     await runAsync(
       'UPDATE users SET email_verified = 1, verification_token = NULL WHERE id = ?',
