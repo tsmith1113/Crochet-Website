@@ -23,12 +23,21 @@ function renderOrders(orders) {
   const isShipped = order.status === 'shipped';
 
   const items = (order.items || [])
-    .map(item => `
-      <div>
-        <strong>${item.product}</strong><br>
-        ${item.colors?.join(', ') || ''}
-      </div>
-    `)
+    .map(item => {
+      const details = [];
+      if (item.colors?.length) details.push(item.colors.join(', '));
+      if (item.bucketHatStyle) details.push(`Style: ${item.bucketHatStyle.replace(/-/g, ' ')}`);
+      if (item.headCircumference) details.push(`Head: ${item.headCircumference}"`);
+      if (item.size) details.push(`Size: ${item.size}`);
+      if (item.rowCount && item.rowCount > 1) details.push(`Rows: ${item.rowCount}`);
+      if (item.allOneColor) details.push('All one color');
+      return `
+        <div style="margin-bottom:4px;">
+          <strong>${item.product}</strong><br>
+          <small>${details.join(' · ') || '—'}</small>
+        </div>
+      `;
+    })
     .join('');
     return `
       <tr>

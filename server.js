@@ -226,37 +226,86 @@ function getItemPrice(item) {
 }
 
 function buildOrderConfirmationEmail(order) {
-  const itemsHtml = order.items.map((item, index) => `
-    <tr>
-      <td>${index + 1}</td>
-      <td>${item.product}</td>
-      <td>${item.colors?.join(', ') || ''}</td>
-      <td>${item.headCircumference || item.size || 'N/A'}</td>
-      <td>$${getItemPrice(item)}</td>
-    </tr>
-  `).join('');
+  const itemsHtml = order.items.map((item, index) => {
+    const details = [];
+    if (item.colors?.length) details.push(`<strong>Colors:</strong> ${item.colors.join(', ')}`);
+    if (item.bucketHatStyle) details.push(`<strong>Style:</strong> ${item.bucketHatStyle.replace(/-/g, ' ')}`);
+    if (item.headCircumference) details.push(`<strong>Head circumference:</strong> ${item.headCircumference}"`);
+    if (item.size) details.push(`<strong>Size:</strong> ${item.size}`);
+    if (item.rowCount && item.rowCount > 1) details.push(`<strong>Rows:</strong> ${item.rowCount}`);
+    if (item.allOneColor) details.push('<strong>All one color</strong>');
+    return `
+      <tr style="border-bottom:1px solid #e8dff0;">
+        <td style="padding:12px 10px;color:#555;">${index + 1}</td>
+        <td style="padding:12px 10px;">
+          <strong style="color:#5a3e6b;">${item.product}</strong><br>
+          <span style="font-size:13px;color:#666;">${details.join('<br>')}</span>
+        </td>
+        <td style="padding:12px 10px;text-align:right;font-weight:600;">$${getItemPrice(item).toFixed(2)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const shippingLabel = order.shipping === 'express' ? 'Express (2–3 days)' : 'Standard (5–7 days)';
 
   return `
-    <h1>🧶 Thank You for Your Order!</h1>
-    <p>Your order has been received and is being prepared.</p>
-    <p><strong>Order Number:</strong> ${order.order_number}</p>
-    <p><strong>Total:</strong> $${order.total}</p>
-    <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%; max-width:600px;">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Product</th>
-          <th>Colors</th>
-          <th>Details</th>
-          <th>Price</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${itemsHtml}
-      </tbody>
-    </table>
-    <p><strong>Shipping:</strong> ${order.shipping} ($${order.shipping_cost})</p>
-    <p>We will send you a shipping notification once your order ships.</p>
+    <div style="font-family:Georgia,serif;background:#faf6f2;padding:30px 0;">
+      <div style="max-width:580px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+
+        <div style="background:#9b6ea8;padding:28px 32px;text-align:center;">
+          <h1 style="color:#fff;margin:0;font-size:24px;letter-spacing:1px;">🧶 Stitched By Trae</h1>
+          <p style="color:#f3eaf8;margin:6px 0 0;font-size:14px;">Handmade with love</p>
+        </div>
+
+        <div style="padding:28px 32px;">
+          <h2 style="color:#5a3e6b;margin:0 0 6px;">Thank you for your order!</h2>
+          <p style="color:#666;margin:0 0 20px;">Your order has been received and is being handcrafted just for you.</p>
+
+          <div style="background:#f3eaf8;border-radius:8px;padding:14px 18px;margin-bottom:24px;">
+            <p style="margin:0;font-size:14px;color:#5a3e6b;"><strong>Order Number:</strong> ${order.order_number}</p>
+            <p style="margin:4px 0 0;font-size:13px;color:#888;">Please save this for your records.</p>
+          </div>
+
+          <h3 style="color:#5a3e6b;margin:0 0 12px;font-size:16px;">Your Items</h3>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #e8dff0;border-radius:8px;overflow:hidden;">
+            <thead>
+              <tr style="background:#f3eaf8;">
+                <th style="padding:10px;text-align:left;font-size:13px;color:#5a3e6b;">#</th>
+                <th style="padding:10px;text-align:left;font-size:13px;color:#5a3e6b;">Item</th>
+                <th style="padding:10px;text-align:right;font-size:13px;color:#5a3e6b;">Price</th>
+              </tr>
+            </thead>
+            <tbody>${itemsHtml}</tbody>
+          </table>
+
+          <table style="width:100%;margin-top:16px;">
+            <tr>
+              <td style="padding:6px 0;color:#666;font-size:14px;">Shipping (${shippingLabel})</td>
+              <td style="padding:6px 0;text-align:right;color:#666;font-size:14px;">$${Number(order.shipping_cost).toFixed(2)}</td>
+            </tr>
+            <tr style="border-top:2px solid #e8dff0;">
+              <td style="padding:10px 0 0;font-size:16px;font-weight:700;color:#5a3e6b;">Total</td>
+              <td style="padding:10px 0 0;text-align:right;font-size:16px;font-weight:700;color:#5a3e6b;">$${Number(order.total).toFixed(2)}</td>
+            </tr>
+          </table>
+
+          <h3 style="color:#5a3e6b;margin:24px 0 8px;font-size:16px;">Shipping To</h3>
+          <p style="color:#555;margin:0;line-height:1.6;">
+            ${order.full_name}<br>
+            ${order.street}<br>
+            ${order.city}, ${order.state} ${order.postal}
+          </p>
+
+          <p style="margin:24px 0 0;color:#666;font-size:14px;">Please allow <strong>3–5 business days</strong> for processing before your order ships. You'll receive a separate email with your tracking number once it's on the way.</p>
+        </div>
+
+        <div style="background:#f3eaf8;padding:20px 32px;text-align:center;">
+          <p style="margin:0;font-size:13px;color:#888;">Questions? Email us at <a href="mailto:stitchedbytrae@gmail.com" style="color:#9b6ea8;">stitchedbytrae@gmail.com</a></p>
+          <p style="margin:6px 0 0;font-size:12px;color:#bbb;">© 2026 Stitched By Trae</p>
+        </div>
+
+      </div>
+    </div>
   `;
 }
 
