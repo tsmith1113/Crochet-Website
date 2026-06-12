@@ -65,11 +65,16 @@
 
 <script src="site.js"></script>
 <script>
-function getItemColorLabels(product, bucketHatStyle) {
+function getItemColorLabels(product, bucketHatStyle, rowCount) {
     if (product === 'Ruffle Bucket Hat') {
         return bucketHatStyle === 'main-rest'
             ? ['Main Color', 'Rest of Hat']
             : ['Main Color', 'Outer Color', 'Top Color'];
+    }
+    if (product === 'Scrunchie') {
+        if (rowCount === 2) return ['Outer Row Color', 'Rest of Scrunchie Color'];
+        if (rowCount === 3) return ['Outer Row Color', 'Middle Row Color', 'Inner Row Color'];
+        return ['Row Color'];
     }
     return ['Color'];
 }
@@ -120,8 +125,9 @@ async function loadUser() {
         const { label, cls } = statusMap[order.status] || { label: order.status, cls: '' };
 
         const itemsHtml = items.map(item => {
-            const colorLabels = getItemColorLabels(item.product, item.bucketHatStyle);
+            const colorLabels = getItemColorLabels(item.product, item.bucketHatStyle, item.rowCount);
             const colorStr = (item.colors || []).map((c, i) => `${colorLabels[i] || 'Color'}: ${c}`).join(', ');
+
             const details = [
                 colorStr,
                 item.size || (item.headCircumference ? `Head: ${item.headCircumference}"` : ''),

@@ -225,11 +225,16 @@ function getItemPrice(item) {
   return Number(item.price || 0);
 }
 
-function getItemColorLabels(product, bucketHatStyle) {
+function getItemColorLabels(product, bucketHatStyle, rowCount) {
   if (product === 'Ruffle Bucket Hat') {
     return bucketHatStyle === 'main-rest'
       ? ['Main Color', 'Rest of Hat']
       : ['Main Color', 'Outer Color', 'Top Color'];
+  }
+  if (product === 'Scrunchie') {
+    if (rowCount === 2) return ['Outer Row Color', 'Rest of Scrunchie Color'];
+    if (rowCount === 3) return ['Outer Row Color', 'Middle Row Color', 'Inner Row Color'];
+    return ['Row Color'];
   }
   return ['Color'];
 }
@@ -238,7 +243,7 @@ function buildOrderConfirmationEmail(order) {
   const itemsHtml = order.items.map((item, index) => {
     const details = [];
     if (item.colors?.length) {
-      const labels = getItemColorLabels(item.product, item.bucketHatStyle);
+      const labels = getItemColorLabels(item.product, item.bucketHatStyle, item.rowCount);
       const colorStr = item.colors.map((c, i) => `${labels[i] || 'Color'}: ${c}`).join(', ');
       details.push(`<strong>Colors:</strong> ${colorStr}`);
     }
@@ -335,7 +340,7 @@ async function sendOrderConfirmationEmail(order) {
 async function sendOwnerNotificationEmail(order) {
   const ownerEmail = process.env.OWNER_EMAIL || 'stitchedbytrae@gmail.com';
   const itemsHtml = order.items.map((item, i) => {
-    const labels = getItemColorLabels(item.product, item.bucketHatStyle);
+    const labels = getItemColorLabels(item.product, item.bucketHatStyle, item.rowCount);
     const colorStr = (item.colors || []).map((c, idx) => `${labels[idx] || 'Color'}: ${c}`).join(', ') || '—';
     const detail = [item.headCircumference ? `Head: ${item.headCircumference}"` : '', item.size || ''].filter(Boolean).join(', ') || '—';
     return `
@@ -952,7 +957,8 @@ app.post('/create-checkout-session', async (req, res) => {
       shippingCost,
       total,
       items,
-      lineItems
+      lineItems,
+      promotionCodeId
     } = req.body;
 
     if (!email || !items?.length || !Array.isArray(lineItems) || !lineItems.length) {
@@ -1012,18 +1018,21 @@ app.post('/create-checkout-session', async (req, res) => {
     const createdId = insertResult.lastID;
     const origin = req.headers.origin || `http://localhost:${process.env.PORT || 3000}`;
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams = {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/checkout?payment=cancel`,
       customer_email: email,
-      metadata: {
-        orderNumber,
-        orderId: String(createdId)
-      }
-    });
+      metadata: { orderNumber, orderId: String(createdId) }
+    };
+    if (promotionCodeId) {
+      sessionParams.discounts = [{ promotion_code: promotionCodeId }];
+    } else {
+      sessionParams.allow_promotion_codes = true;
+    }
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     await runAsync('UPDATE orders SET stripe_session_id = ? WHERE id = ?', [session.id, createdId]);
 
@@ -1031,6 +1040,23 @@ app.post('/create-checkout-session', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Unable to create Stripe checkout session.' });
+  }
+});
+
+app.get('/validate-promo', async (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.status(400).json({ error: 'No code provided' });
+  try {
+    const results = await stripe.promotionCodes.list({ code: code.trim(), active: true, limit: 1 });
+    const promo = results.data[0];
+    if (!promo) return res.status(404).json({ error: 'Invalid or expired promo code' });
+    const coupon = promo.coupon;
+    const discount = coupon.amount_off ? coupon.amount_off / 100 : null;
+    if (!discount) return res.status(400).json({ error: 'This code does not apply a fixed discount' });
+    res.json({ valid: true, discount, promotionCodeId: promo.id, label: coupon.name || code.trim() });
+  } catch (err) {
+    console.error('Promo validation error:', err);
+    res.status(500).json({ error: 'Unable to validate promo code' });
   }
 });
 

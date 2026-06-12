@@ -57,6 +57,10 @@
                         <span>Shipping</span>
                         <strong id="summary-shipping">$0</strong>
                     </div>
+                    <div class="summary-line" id="summary-discount-line" style="display:none;color:#276335;">
+                        <span id="summary-discount-label">Promo Code</span>
+                        <strong id="summary-discount">-$0</strong>
+                    </div>
                     <div class="summary-total">
                         <span>Total</span>
                         <strong id="summary-total">$0</strong>
@@ -155,6 +159,16 @@
                         </select>
                         <p class="checkout-note">🧶 All items are handmade to order. Please allow 3–5 business days for processing before shipment.</p>
                         <p class="checkout-note">We proudly ship to APO, FPO, and DPO military addresses worldwide.</p>
+                    </div>
+
+                    <div class="checkout-block">
+                        <h2>Promo Code</h2>
+                        <p class="checkout-intro">Have a discount code? Enter it below.</p>
+                        <div style="display:flex;gap:0.5rem;">
+                            <input type="text" id="promo-code-input" placeholder="Enter code" autocomplete="off" style="flex:1;text-transform:uppercase;">
+                            <button type="button" id="apply-promo-button" class="button" style="white-space:nowrap;">Apply</button>
+                        </div>
+                        <div id="promo-message" class="form-message" aria-live="polite" style="margin-top:0.5rem;"></div>
                     </div>
 
                     <div class="checkout-block checkout-block-last">

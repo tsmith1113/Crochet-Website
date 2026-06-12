@@ -2,11 +2,16 @@ const apiBase = '';
 const ordersBody = document.getElementById('orders-table-body');
 const adminMessage = document.getElementById('admin-message');
 
-function getItemColorLabels(product, bucketHatStyle) {
+function getItemColorLabels(product, bucketHatStyle, rowCount) {
   if (product === 'Ruffle Bucket Hat') {
     return bucketHatStyle === 'main-rest'
       ? ['Main Color', 'Rest of Hat']
       : ['Main Color', 'Outer Color', 'Top Color'];
+  }
+  if (product === 'Scrunchie') {
+    if (rowCount === 2) return ['Outer Row Color', 'Rest of Scrunchie Color'];
+    if (rowCount === 3) return ['Outer Row Color', 'Middle Row Color', 'Inner Row Color'];
+    return ['Row Color'];
   }
   return ['Color'];
 }
@@ -35,7 +40,7 @@ function renderOrders(orders) {
     .map(item => {
       const details = [];
       if (item.colors?.length) {
-        const labels = getItemColorLabels(item.product, item.bucketHatStyle);
+        const labels = getItemColorLabels(item.product, item.bucketHatStyle, item.rowCount);
         details.push(item.colors.map((c, i) => `${labels[i] || 'Color'}: ${c}`).join(', '));
       }
       if (item.bucketHatStyle) details.push(`Style: ${item.bucketHatStyle.replace(/-/g, ' ')}`);

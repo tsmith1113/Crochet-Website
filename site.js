@@ -105,6 +105,14 @@ const summaryShipping = document.getElementById('summary-shipping');
 const summaryTotal = document.getElementById('summary-total');
 const summaryExtraLine = document.getElementById('summary-extra-line');
 const summaryExtra = document.getElementById('summary-extra');
+const summaryDiscountLine = document.getElementById('summary-discount-line');
+const summaryDiscountEl = document.getElementById('summary-discount');
+const summaryDiscountLabel = document.getElementById('summary-discount-label');
+const promoCodeInput = document.getElementById('promo-code-input');
+const applyPromoButton = document.getElementById('apply-promo-button');
+const promoMessage = document.getElementById('promo-message');
+
+let appliedPromo = null;
 const checkoutItemList = document.getElementById('checkout-item-list');
 const singleSummaryItem = document.getElementById('single-summary-item');
 const productSelect = customForm ? customForm.querySelector('select[name="product"]') : null;
@@ -676,7 +684,8 @@ async function handleStripeCheckout() {
     },
     body: JSON.stringify({
       ...payload,
-      lineItems
+      lineItems,
+      promotionCodeId: appliedPromo ? appliedPromo.promotionCodeId : null
     })
   });
 
@@ -770,18 +779,23 @@ function getMeasurementText(order) {
   return '';
 }
 
-function getItemColorLabels(product, bucketHatStyle) {
+function getItemColorLabels(product, bucketHatStyle, rowCount) {
   if (product === 'Ruffle Bucket Hat') {
     return bucketHatStyle === 'main-rest'
       ? ['Main Color', 'Rest of Hat']
       : ['Main Color', 'Outer Color', 'Top Color'];
+  }
+  if (product === 'Scrunchie') {
+    if (rowCount === 2) return ['Outer Row Color', 'Rest of Scrunchie Color'];
+    if (rowCount === 3) return ['Outer Row Color', 'Middle Row Color', 'Inner Row Color'];
+    return ['Row Color'];
   }
   return ['Color'];
 }
 
 function getOrderMetaText(order) {
   if (!order) return '';
-  const labels = getItemColorLabels(order.product, order.bucketHatStyle);
+  const labels = getItemColorLabels(order.product, order.bucketHatStyle, order.rowCount);
   const colorText = order.allOneColor && order.colors.length
     ? `All one color: ${order.colors[0]}`
     : order.colors.map((c, i) => `${labels[i] || 'Color'}: ${c}`).join(', ');
@@ -967,7 +981,9 @@ function updateCheckoutSummary() {
   }
 
   summaryShipping.textContent = `$${shippingCost}`;
-  summaryTotal.textContent = `$${total}`;
+  const discount = appliedPromo ? appliedPromo.discount : 0;
+  const discountedTotal = Math.max(0, total - discount);
+  summaryTotal.textContent = `$${discountedTotal.toFixed(2)}`;
 }
 
 function buildReceiptPreview(form) {
@@ -1198,6 +1214,38 @@ if (checkoutItemList) {
 
 if (checkoutForm) {
   checkoutForm.addEventListener('submit', handleFormSubmit);
+}
+
+if (applyPromoButton && promoCodeInput) {
+  applyPromoButton.addEventListener('click', async () => {
+    const code = promoCodeInput.value.trim();
+    if (!code) return;
+    promoMessage.style.color = '#666';
+    promoMessage.textContent = 'Validating...';
+    applyPromoButton.disabled = true;
+    try {
+      const res = await fetch(`/validate-promo?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        promoMessage.style.color = '#b00020';
+        promoMessage.textContent = data.error || 'Invalid promo code.';
+        appliedPromo = null;
+        if (summaryDiscountLine) summaryDiscountLine.style.display = 'none';
+      } else {
+        appliedPromo = data;
+        promoMessage.style.color = '#276335';
+        promoMessage.textContent = `Code applied! -$${data.discount.toFixed(2)} off`;
+        if (summaryDiscountLine) summaryDiscountLine.style.display = 'flex';
+        if (summaryDiscountLabel) summaryDiscountLabel.textContent = data.label || code;
+        if (summaryDiscountEl) summaryDiscountEl.textContent = `-$${data.discount.toFixed(2)}`;
+        updateCheckoutSummary();
+      }
+    } catch {
+      promoMessage.style.color = '#b00020';
+      promoMessage.textContent = 'Unable to validate code. Try again.';
+    }
+    applyPromoButton.disabled = false;
+  });
 }
 
 if (stripeCheckoutButton) {
