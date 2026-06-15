@@ -1106,6 +1106,28 @@ app.post('/orders/:id/resend-confirmation', requireAdmin, async (req, res) => {
   }
 });
 
+app.patch('/orders/:id/tracking', requireAdmin, async (req, res) => {
+  try {
+    const orderId = Number(req.params.id);
+    const { trackingNumber } = req.body;
+    if (!trackingNumber) return res.status(400).json({ error: 'Tracking number is required.' });
+
+    const orderRow = await getAsync('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!orderRow) return res.status(404).json({ error: 'Order not found.' });
+
+    await runAsync(
+      'UPDATE orders SET tracking_number = ?, updated_at = ? WHERE id = ?',
+      [trackingNumber, new Date().toISOString(), orderId]
+    );
+
+    const updatedOrder = await getAsync('SELECT * FROM orders WHERE id = ?', [orderId]);
+    res.json(parseOrderRow(updatedOrder));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Unable to update tracking number.' });
+  }
+});
+
 app.post('/orders/:id/ship', requireAdmin, async (req, res) => {
   try {
     const orderId = Number(req.params.id);

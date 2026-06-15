@@ -70,14 +70,15 @@ function renderOrders(orders) {
         <td>${order.shipping}</td>
         <td class="admin-status">${order.status}</td>
         <td>
-  <input
-    type="text"
-    class="tracking-input"
-    data-id="${order.id}"
-    value="${order.tracking_number || ''}"
-    placeholder="Enter tracking"
-    ${isShipped ? 'disabled' : ''}
-  >
+  ${isShipped
+    ? `<span class="tracking-display" data-id="${order.id}">${order.tracking_number || '—'}</span>
+       <input type="text" class="tracking-input tracking-edit-input" data-id="${order.id}" value="${order.tracking_number || ''}" style="display:none;">
+       <br>
+       <button type="button" class="edit-tracking-button" data-id="${order.id}" style="margin-top:4px;">Edit</button>
+       <button type="button" class="save-tracking-button" data-id="${order.id}" style="display:none;margin-top:4px;">Save</button>
+       <button type="button" class="cancel-tracking-button" data-id="${order.id}" style="display:none;margin-top:4px;">Cancel</button>`
+    : `<input type="text" class="tracking-input" data-id="${order.id}" value="${order.tracking_number || ''}" placeholder="Enter tracking">`
+  }
 </td>
         <td>
           <button type="button" class="ship-button" data-id="${order.id}" ${isShipped ? 'disabled' : ''}>
@@ -140,6 +141,23 @@ async function markShipped(orderId, trackingNumber) {
   }
 }
 
+async function updateTracking(orderId, trackingNumber) {
+  try {
+    showAdminMessage('Updating tracking number...');
+    const response = await fetch(`${apiBase}/orders/${orderId}/tracking`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trackingNumber })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Unable to update tracking number.');
+    showAdminMessage(`Tracking number updated for order ${result.order_number}.`);
+    await loadOrders();
+  } catch (error) {
+    showAdminMessage(error.message || 'Unable to update tracking number.', true);
+  }
+}
+
 async function resendConfirmation(orderId) {
   try {
     showAdminMessage('Sending confirmation email...');
@@ -162,6 +180,33 @@ if (ordersBody) {
         const trackingNumber = trackingInput?.value.trim();
         markShipped(orderId, trackingNumber);
       }
+    }
+
+    const editButton = event.target.closest('.edit-tracking-button');
+    if (editButton) {
+      const id = editButton.dataset.id;
+      document.querySelector(`.tracking-display[data-id="${id}"]`).style.display = 'none';
+      document.querySelector(`.tracking-edit-input[data-id="${id}"]`).style.display = '';
+      editButton.style.display = 'none';
+      document.querySelector(`.save-tracking-button[data-id="${id}"]`).style.display = '';
+      document.querySelector(`.cancel-tracking-button[data-id="${id}"]`).style.display = '';
+    }
+
+    const saveButton = event.target.closest('.save-tracking-button');
+    if (saveButton) {
+      const id = saveButton.dataset.id;
+      const trackingNumber = document.querySelector(`.tracking-edit-input[data-id="${id}"]`).value.trim();
+      updateTracking(id, trackingNumber);
+    }
+
+    const cancelButton = event.target.closest('.cancel-tracking-button');
+    if (cancelButton) {
+      const id = cancelButton.dataset.id;
+      document.querySelector(`.tracking-display[data-id="${id}"]`).style.display = '';
+      document.querySelector(`.tracking-edit-input[data-id="${id}"]`).style.display = 'none';
+      document.querySelector(`.edit-tracking-button[data-id="${id}"]`).style.display = '';
+      document.querySelector(`.save-tracking-button[data-id="${id}"]`).style.display = 'none';
+      document.querySelector(`.cancel-tracking-button[data-id="${id}"]`).style.display = 'none';
     }
 
     const resendButton = event.target.closest('.resend-button');
