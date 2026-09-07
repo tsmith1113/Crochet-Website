@@ -54,8 +54,11 @@
                         <strong id="summary-extra">$0</strong>
                     </div>
                     <div class="summary-line">
-                        <span>Shipping</span>
+                        <span id="summary-shipping-label">Shipping</span>
                         <strong id="summary-shipping">$0</strong>
+                    </div>
+                    <div class="summary-line" id="summary-ksu-details-line" style="display:none;flex-direction:column;align-items:flex-start;gap:0.25rem;">
+                        <span id="summary-ksu-details"></span>
                     </div>
                     <div class="summary-line" id="summary-discount-line" style="display:none;color:#276335;">
                         <span id="summary-discount-label">Promo Code</span>
@@ -77,12 +80,14 @@
             <div class="checkout-form">
                 <form id="checkout-form">
                     <div class="checkout-block">
-                        <h2>Shipping Address</h2>
-                        <p class="checkout-intro">Enter your shipping address and contact information.</p>
+                        <h2 id="address-block-heading">Shipping Address</h2>
+                        <p class="checkout-intro" id="address-block-intro">Enter your shipping address and contact information.</p>
+                        <p class="checkout-note" id="address-ksu-note" style="display:none;">Since you chose KSU Campus Delivery, you don't need to enter a shipping address — we'll meet you on campus instead!</p>
                         <div class="checkout-field-grid">
                             <input type="text" name="firstName" placeholder="First Name" autocomplete="given-name" required>
                             <input type="text" name="lastName" placeholder="Last Name" autocomplete="family-name" required>
                             <input type="email" name="email" placeholder="Email Address" autocomplete="email" class="field-full-width" required>
+                            <div id="address-fields-group" style="display:contents;">
                             <input type="text" name="street" placeholder="Street Address" autocomplete="street-address" class="field-full-width" required>
                             <input type="text" name="city" placeholder="City" autocomplete="address-level2" required>
                             <select name="state" autocomplete="address-level1" required>
@@ -142,6 +147,7 @@
                                 <option value="AP">AP - Armed Forces Pacific</option>
                             </select>
                             <input type="text" name="postal" placeholder="Postal Code" autocomplete="postal-code" required>
+                            </div>
                         </div>
                         <label class="remember-me">
                             <input type="checkbox" id="remember-details" name="rememberMe">
@@ -150,15 +156,57 @@
                     </div>
 
                     <div class="checkout-block checkout-shipping-block">
-                        <h2>Shipping</h2>
-                        <p class="checkout-intro">Choose a shipping option for your handcrafted order.</p>
-                        <select id="shipping-select" name="shipping" required>
-                            <option value="">Select Shipping Speed</option>
-                            <option value="standard">Standard - 5 to 7 days</option>
-                            <option value="express">Express - 2 to 3 days</option>
-                        </select>
-                        <p class="checkout-note">🧶 All items are handmade to order. Please allow 3–5 business days for processing before shipment.</p>
-                        <p class="checkout-note">We proudly ship to APO, FPO, and DPO military addresses worldwide.</p>
+                        <h2 id="delivery-block-heading">Shipping</h2>
+                        <p class="checkout-intro" id="delivery-block-intro">Choose a shipping option for your handcrafted order.</p>
+                        <label class="remember-me" style="margin-bottom:0.85rem;">
+                            <input type="checkbox" id="ksu-student-checkbox">
+                            🎓 I'm a KSU student — show campus delivery option
+                        </label>
+
+                        <div id="delivery-method-wrap" style="display:none;">
+                            <select id="delivery-method-select" name="deliveryMethod">
+                                <option value="ship">Ship My Order</option>
+                                <option value="ksu">KSU Campus Delivery ($5)</option>
+                            </select>
+                        </div>
+
+                        <div id="shipping-speed-block" style="margin-top:0.85rem;">
+                            <select id="shipping-select" name="shipping">
+                                <option value="">Select Shipping Speed</option>
+                                <option value="standard">Standard - 5 to 7 days</option>
+                                <option value="express">Express - 2 to 3 days</option>
+                            </select>
+                            <p class="checkout-note">🧶 All items are handmade to order. Please allow 3–5 business days for processing before shipment.</p>
+                            <p class="checkout-note">We proudly ship to APO, FPO, and DPO military addresses worldwide.</p>
+                        </div>
+
+                        <div id="ksu-delivery-block" class="checkout-field-grid" style="margin-top:0.85rem; display:none;">
+                            <select id="ksu-campus-select" name="ksuCampus">
+                                <option value="">KSU Campus</option>
+                                <option value="Kennesaw Campus">Kennesaw Campus</option>
+                                <option value="Marietta Campus">Marietta Campus</option>
+                            </select>
+                            <select id="ksu-meetup-select" name="ksuMeetupLocation">
+                                <option value="">Meetup Location</option>
+                                <option value="Student Center">Student Center</option>
+                                <option value="The Commons">The Commons</option>
+                                <option value="Library">Library</option>
+                                <option value="Other">Other (specify below)</option>
+                            </select>
+                            <input type="text" id="ksu-meetup-other" name="ksuMeetupOther" placeholder="Meetup location details" class="field-full-width" style="display:none;">
+                            <select id="ksu-day-select" name="ksuDeliveryDay">
+                                <option value="">Preferred Delivery Day</option>
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
+                            </select>
+                            <input type="tel" id="ksu-phone-input" name="ksuPhone" placeholder="Phone Number" autocomplete="tel">
+                            <input type="text" id="ksu-id-input" name="ksuId" placeholder="KSU ID Number (9 digits)" inputmode="numeric" maxlength="9" pattern="00\d{7}" title="9 digits, starting with 00 or 000" class="field-full-width">
+                            <p class="checkout-note field-full-width">🎓 Your 9-digit KSU ID number (starts with 00 or 000) helps us verify you at pickup. Required for campus delivery.</p>
+                            <p class="checkout-note field-full-width">📍 We won't ask for a dorm room or building room number. Once your order is ready, we'll text or email you to confirm the exact meetup time at your chosen location.</p>
+                        </div>
                     </div>
 
                     <div class="checkout-block">

@@ -86,6 +86,7 @@ const shippingPrices = {
   standard: 5,
   express: 12
 };
+const KSU_DELIVERY_FEE = 5;
 
 const colorPickers = document.getElementById('color-pickers');
 const navToggle = document.getElementById('nav-toggle');
@@ -96,12 +97,28 @@ const customMessage = document.getElementById('custom-form-message');
 const checkoutMessage = document.getElementById('checkout-form-message');
 const goCheckoutButton = document.getElementById('go-checkout-button');
 const shippingSelect = document.getElementById('shipping-select');
+const ksuStudentCheckbox = document.getElementById('ksu-student-checkbox');
+const deliveryMethodWrap = document.getElementById('delivery-method-wrap');
+const deliveryBlockHeading = document.getElementById('delivery-block-heading');
+const deliveryBlockIntro = document.getElementById('delivery-block-intro');
+const deliveryMethodSelect = document.getElementById('delivery-method-select');
+const shippingSpeedBlock = document.getElementById('shipping-speed-block');
+const ksuDeliveryBlock = document.getElementById('ksu-delivery-block');
+const ksuCampusSelect = document.getElementById('ksu-campus-select');
+const ksuMeetupSelect = document.getElementById('ksu-meetup-select');
+const ksuMeetupOtherInput = document.getElementById('ksu-meetup-other');
+const ksuDaySelect = document.getElementById('ksu-day-select');
+const ksuPhoneInput = document.getElementById('ksu-phone-input');
+const ksuIdInput = document.getElementById('ksu-id-input');
 const stripeCheckoutButton = document.getElementById('stripe-checkout-button');
 const stripeStatusMessage = document.getElementById('stripe-status-message');
 const summaryProduct = document.getElementById('summary-product');
 const summaryColors = document.getElementById('summary-colors');
 const summaryProductPrice = document.getElementById('summary-product-price');
 const summaryShipping = document.getElementById('summary-shipping');
+const summaryShippingLabel = document.getElementById('summary-shipping-label');
+const summaryKsuDetailsLine = document.getElementById('summary-ksu-details-line');
+const summaryKsuDetails = document.getElementById('summary-ksu-details');
 const summaryTotal = document.getElementById('summary-total');
 const summaryExtraLine = document.getElementById('summary-extra-line');
 const summaryExtra = document.getElementById('summary-extra');
@@ -580,6 +597,38 @@ function clearBillingDetails() {
   window.localStorage.removeItem(rememberDetailsKey);
 }
 
+function isKsuDelivery() {
+  const checkboxAllows = !ksuStudentCheckbox || ksuStudentCheckbox.checked;
+  return !!(deliveryMethodSelect && deliveryMethodSelect.value === 'ksu' && checkboxAllows);
+}
+
+function getKsuMeetupLocation() {
+  if (!ksuMeetupSelect) return '';
+  if (ksuMeetupSelect.value === 'Other') {
+    return ksuMeetupOtherInput ? ksuMeetupOtherInput.value.trim() : '';
+  }
+  return ksuMeetupSelect.value;
+}
+
+function isValidKsuId(value) {
+  return /^00\d{7}$/.test((value || '').trim());
+}
+
+function resetKsuFields() {
+  if (ksuCampusSelect) ksuCampusSelect.value = '';
+  if (ksuMeetupSelect) ksuMeetupSelect.value = '';
+  if (ksuMeetupOtherInput) ksuMeetupOtherInput.value = '';
+  if (ksuDaySelect) ksuDaySelect.value = '';
+  if (ksuPhoneInput) ksuPhoneInput.value = '';
+  if (ksuIdInput) ksuIdInput.value = '';
+}
+
+function getDeliveryCost() {
+  if (isKsuDelivery()) return KSU_DELIVERY_FEE;
+  const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
+  return getShippingPrice(shippingKey);
+}
+
 function buildCheckoutPayload(form) {
   if (!form) return null;
   const emailField = form.querySelector('input[name="email"]');
@@ -590,6 +639,7 @@ function buildCheckoutPayload(form) {
   const cityField = form.querySelector('input[name="city"]');
   const stateField = form.querySelector('select[name="state"]');
   const postalField = form.querySelector('input[name="postal"]');
+  const isKsu = isKsuDelivery();
   const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
   const loadedItems = loadOrderItems();
   const items = loadedItems.map(item => ({
@@ -597,7 +647,7 @@ function buildCheckoutPayload(form) {
     price: getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle)
   }));
   const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0), 0);
-  const shippingCost = getShippingPrice(shippingKey);
+  const shippingCost = getDeliveryCost();
 
   return {
     fullName,
@@ -606,8 +656,14 @@ function buildCheckoutPayload(form) {
     city: cityField ? cityField.value.trim() : '',
     state: stateField ? stateField.value.trim() : '',
     postal: postalField ? postalField.value.trim() : '',
-    shipping: shippingKey,
+    shipping: isKsu ? 'ksu' : shippingKey,
     shippingCost,
+    deliveryMethod: isKsu ? 'ksu' : 'ship',
+    ksuCampus: isKsu && ksuCampusSelect ? ksuCampusSelect.value : '',
+    ksuMeetupLocation: isKsu ? getKsuMeetupLocation() : '',
+    ksuDeliveryDay: isKsu && ksuDaySelect ? ksuDaySelect.value : '',
+    ksuPhone: isKsu && ksuPhoneInput ? ksuPhoneInput.value.trim() : '',
+    ksuId: isKsu && ksuIdInput ? ksuIdInput.value.trim() : '',
     total: subtotal + shippingCost,
     items,
   };
@@ -647,9 +703,17 @@ async function handleStripeCheckout() {
     return;
   }
 
+  if (payload.deliveryMethod === 'ksu' && !isValidKsuId(payload.ksuId)) {
+    showStripeStatus('Please enter a valid 9-digit KSU ID number (starts with 00 or 000) before checking out.');
+    if (ksuIdInput) ksuIdInput.focus();
+    return;
+  }
+
   const lineItems = getStripeLineItems();
   if (payload.shippingCost > 0) {
-    const shippingLabel = payload.shipping === 'express' ? 'Express Shipping (2–3 days)' : 'Standard Shipping (5–7 days)';
+    const shippingLabel = payload.deliveryMethod === 'ksu'
+      ? 'KSU Campus Delivery'
+      : (payload.shipping === 'express' ? 'Express Shipping (2–3 days)' : 'Standard Shipping (5–7 days)');
     lineItems.push({
       price_data: {
         currency: 'usd',
@@ -817,17 +881,89 @@ function hasBucketHatOrder(items) {
   return items.some(item => item.product === 'Bucket Hat' || item.product === 'Beanie' || item.product === 'Ruffle Bucket Hat');
 }
 
-function updateShippingVisibility() {
-  if (!shippingSelect) return;
-  const shippingBlock = shippingSelect.closest('.checkout-block');
-  const items = loadOrderItems();
-  const showShipping = items.length > 0 && !hasBucketHatOrder(items);
+function setKsuFieldsRequired(required) {
+  if (ksuCampusSelect) ksuCampusSelect.required = required;
+  if (ksuMeetupSelect) ksuMeetupSelect.required = required;
+  if (ksuDaySelect) ksuDaySelect.required = required;
+  if (ksuPhoneInput) ksuPhoneInput.required = required;
+  if (ksuIdInput) ksuIdInput.required = required;
+  if (ksuMeetupOtherInput) {
+    ksuMeetupOtherInput.required = required && ksuMeetupSelect && ksuMeetupSelect.value === 'Other';
+  }
+}
 
-  if (shippingBlock) {
-    shippingBlock.style.display = showShipping ? '' : 'none';
+function updateKsuMeetupOtherVisibility() {
+  if (!ksuMeetupSelect || !ksuMeetupOtherInput) return;
+  const showOther = isKsuDelivery() && ksuMeetupSelect.value === 'Other';
+  ksuMeetupOtherInput.style.display = showOther ? '' : 'none';
+  ksuMeetupOtherInput.required = showOther;
+}
+
+function updateAddressRequirement() {
+  if (!checkoutForm) return;
+  const isKsu = isKsuDelivery();
+  const streetField = checkoutForm.querySelector('input[name="street"]');
+  const cityField = checkoutForm.querySelector('input[name="city"]');
+  const stateField = checkoutForm.querySelector('select[name="state"]');
+  const postalField = checkoutForm.querySelector('input[name="postal"]');
+  [streetField, cityField, stateField, postalField].forEach(field => {
+    if (field) field.required = !isKsu;
+  });
+  const addressFieldsGroup = document.getElementById('address-fields-group');
+  if (addressFieldsGroup) {
+    addressFieldsGroup.style.display = isKsu ? 'none' : 'contents';
+    if (isKsu) {
+      [streetField, cityField, stateField, postalField].forEach(field => {
+        if (field) field.value = '';
+      });
+    }
+  }
+  const heading = document.getElementById('address-block-heading');
+  const intro = document.getElementById('address-block-intro');
+  const ksuNote = document.getElementById('address-ksu-note');
+  if (heading) heading.textContent = isKsu ? 'Contact Information' : 'Shipping Address';
+  if (intro) intro.textContent = isKsu ? 'Enter your contact information below.' : 'Enter your shipping address and contact information.';
+  if (ksuNote) ksuNote.style.display = isKsu ? '' : 'none';
+}
+
+function updateDeliveryMethodVisibility() {
+  if (!shippingSelect || !deliveryMethodSelect) return;
+  const items = loadOrderItems();
+  const hasItems = items.length > 0;
+  const deliveryBlock = deliveryMethodSelect.closest('.checkout-block');
+  if (deliveryBlock) {
+    deliveryBlock.style.display = hasItems ? '' : 'none';
   }
 
-  if (showShipping) {
+  const isKsuStudent = !!(ksuStudentCheckbox && ksuStudentCheckbox.checked);
+  if (deliveryMethodWrap) deliveryMethodWrap.style.display = isKsuStudent ? '' : 'none';
+  if (!isKsuStudent) {
+    deliveryMethodSelect.value = 'ship';
+  }
+  if (deliveryBlockHeading) deliveryBlockHeading.textContent = isKsuStudent ? 'Delivery Method' : 'Shipping';
+  if (deliveryBlockIntro) {
+    deliveryBlockIntro.textContent = isKsuStudent
+      ? "Choose how you'd like to receive your handcrafted order."
+      : 'Choose a shipping option for your handcrafted order.';
+  }
+
+  const isKsu = isKsuDelivery();
+  if (ksuDeliveryBlock) ksuDeliveryBlock.style.display = isKsu ? 'grid' : 'none';
+  setKsuFieldsRequired(isKsu);
+  updateKsuMeetupOtherVisibility();
+  updateAddressRequirement();
+
+  if (isKsu) {
+    if (shippingSpeedBlock) shippingSpeedBlock.style.display = 'none';
+    shippingSelect.required = false;
+    shippingSelect.value = 'standard';
+    return;
+  }
+
+  const showShippingSpeed = hasItems && !hasBucketHatOrder(items);
+  if (shippingSpeedBlock) shippingSpeedBlock.style.display = showShippingSpeed ? '' : 'none';
+
+  if (showShippingSpeed) {
     shippingSelect.required = true;
     if (!shippingSelect.value) {
       shippingSelect.value = 'standard';
@@ -836,6 +972,10 @@ function updateShippingVisibility() {
     shippingSelect.required = false;
     shippingSelect.value = 'standard';
   }
+}
+
+function updateShippingVisibility() {
+  updateDeliveryMethodVisibility();
 }
 
 function getExtraColorNoteText() {
@@ -931,8 +1071,7 @@ function updateCheckoutSummary() {
     updateShippingVisibility();
   }
 
-  const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
-  const shippingCost = getShippingPrice(shippingKey);
+  const shippingCost = getDeliveryCost();
   const subtotal = items.reduce((sum, item) => {
     return sum + getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
   }, 0);
@@ -981,6 +1120,25 @@ function updateCheckoutSummary() {
   }
 
   summaryShipping.textContent = `$${shippingCost}`;
+  if (summaryShippingLabel) {
+    summaryShippingLabel.textContent = isKsuDelivery() ? 'KSU Campus Delivery' : 'Shipping';
+  }
+  if (summaryKsuDetailsLine && summaryKsuDetails) {
+    if (isKsuDelivery()) {
+      const campus = ksuCampusSelect ? ksuCampusSelect.value : '';
+      const meetup = getKsuMeetupLocation();
+      const day = ksuDaySelect ? ksuDaySelect.value : '';
+      const details = [
+        campus ? `Campus: ${campus}` : '',
+        meetup ? `Meetup: ${meetup}` : '',
+        day ? `Day: ${day}` : ''
+      ].filter(Boolean).join(' • ');
+      summaryKsuDetailsLine.style.display = details ? 'flex' : 'none';
+      summaryKsuDetails.textContent = details;
+    } else {
+      summaryKsuDetailsLine.style.display = 'none';
+    }
+  }
   const discount = appliedPromo ? appliedPromo.discount : 0;
   const discountedTotal = Math.max(0, total - discount);
   summaryTotal.textContent = `$${discountedTotal.toFixed(2)}`;
@@ -991,8 +1149,7 @@ function buildReceiptPreview(form) {
   const emailField = form.querySelector('input[name="email"]');
   const email = emailField ? emailField.value.trim() : '';
   const items = loadOrderItems();
-  const shippingKey = shippingSelect && shippingSelect.value ? shippingSelect.value : 'standard';
-  const shippingCost = getShippingPrice(shippingKey);
+  const shippingCost = getDeliveryCost();
   const subtotal = items.reduce((sum, item) => {
     return sum + getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
   }, 0);
@@ -1002,11 +1159,15 @@ function buildReceiptPreview(form) {
     const price = getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
     return `${index + 1}. ${item.product} (${meta}) — $${price}`;
   });
+  const deliveryLabel = isKsuDelivery() ? 'KSU Campus Delivery' : 'Shipping';
+  const ksuDetails = isKsuDelivery()
+    ? `\nCampus: ${ksuCampusSelect ? ksuCampusSelect.value : ''}\nMeetup Location: ${getKsuMeetupLocation()}\nPreferred Delivery Day: ${ksuDaySelect ? ksuDaySelect.value : ''}\nPhone: ${ksuPhoneInput ? ksuPhoneInput.value.trim() : ''}\nKSU ID: ${ksuIdInput ? ksuIdInput.value.trim() : ''}`
+    : '';
   return `Receipt will be sent to ${email || 'your email address'}.
 
 ${lines.join('\n')}
 
-Shipping: $${shippingCost}
+${deliveryLabel}: $${shippingCost}${ksuDetails}
 Total: $${total}`;
 }
 
@@ -1044,6 +1205,12 @@ async function handleFormSubmit(event) {
 
   if (!payload.items.length) {
     if (checkoutMessage) checkoutMessage.textContent = 'Add at least one item to your order before submitting.';
+    return;
+  }
+
+  if (payload.deliveryMethod === 'ksu' && !isValidKsuId(payload.ksuId)) {
+    if (checkoutMessage) checkoutMessage.textContent = 'Please enter a valid 9-digit KSU ID number (starts with 00 or 000) before submitting.';
+    if (ksuIdInput) ksuIdInput.focus();
     return;
   }
 
@@ -1085,6 +1252,9 @@ async function handleFormSubmit(event) {
     }
 
     if (shippingSelect) shippingSelect.value = '';
+    if (deliveryMethodSelect) deliveryMethodSelect.value = 'ship';
+    if (ksuStudentCheckbox) ksuStudentCheckbox.checked = false;
+    resetKsuFields();
     updateCheckoutSummary();
     setTimeout(() => {
       if (checkoutMessage) checkoutMessage.textContent = '';
@@ -1267,6 +1437,35 @@ if (sendReceiptButton) {
 if (shippingSelect) {
   shippingSelect.addEventListener('change', updateCheckoutSummary);
 }
+
+if (ksuStudentCheckbox) {
+  ksuStudentCheckbox.addEventListener('change', () => {
+    if (!ksuStudentCheckbox.checked) {
+      if (deliveryMethodSelect) deliveryMethodSelect.value = 'ship';
+      resetKsuFields();
+    }
+    updateDeliveryMethodVisibility();
+    updateCheckoutSummary();
+  });
+}
+
+if (deliveryMethodSelect) {
+  deliveryMethodSelect.addEventListener('change', () => {
+    updateDeliveryMethodVisibility();
+    updateCheckoutSummary();
+  });
+}
+
+if (ksuMeetupSelect) {
+  ksuMeetupSelect.addEventListener('change', () => {
+    updateKsuMeetupOtherVisibility();
+    updateCheckoutSummary();
+  });
+}
+
+[ksuCampusSelect, ksuDaySelect, ksuPhoneInput, ksuIdInput, ksuMeetupOtherInput].forEach(field => {
+  if (field) field.addEventListener('change', updateCheckoutSummary);
+});
 
 window.addEventListener('DOMContentLoaded', () => {
   updateColorPickers();

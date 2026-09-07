@@ -26,6 +26,29 @@ function formatAmount(value) {
   return `$${Number(value).toFixed(2)}`;
 }
 
+function escapeHtml(value) {
+  const div = document.createElement('div');
+  div.textContent = value == null ? '' : String(value);
+  return div.innerHTML;
+}
+
+function formatDeliveryCell(order) {
+  if (order.delivery_method === 'ksu') {
+    return `
+      <strong style="color:#7b1c2e;">🎓 KSU Campus Delivery</strong><br>
+      <small>
+        Campus: ${escapeHtml(order.ksu_campus) || '—'}<br>
+        Meetup Location: ${escapeHtml(order.ksu_meetup_location) || '—'}<br>
+        Delivery Date: ${escapeHtml(order.ksu_delivery_day) || '—'}<br>
+        Phone: ${escapeHtml(order.ksu_phone) || '—'}<br>
+        KSU ID: ${escapeHtml(order.ksu_id_number) || '—'}
+      </small>
+    `;
+  }
+  const label = order.shipping === 'express' ? 'Express (2–3 days)' : 'Standard (5–7 days)';
+  return `Ship My Order<br><small>${label}</small>`;
+}
+
 function renderOrders(orders) {
   if (!ordersBody) return;
   if (!orders.length) {
@@ -67,7 +90,7 @@ function renderOrders(orders) {
 
 <td>${items}</td>
         <td>${formatAmount(order.total)}</td>
-        <td>${order.shipping}</td>
+        <td>${formatDeliveryCell(order)}</td>
         <td class="admin-status">${order.status}</td>
         <td>
   ${isShipped

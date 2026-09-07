@@ -59,7 +59,12 @@
 
                     <div class="lookup-result-meta">
                         <p><strong>Placed:</strong> <span id="result-date"></span></p>
-                        <p><strong>Shipping:</strong> <span id="result-shipping"></span></p>
+                        <p><strong>Delivery:</strong> <span id="result-shipping"></span></p>
+                        <div id="result-ksu-wrap" style="display:none;">
+                            <p><strong>Campus:</strong> <span id="result-ksu-campus"></span></p>
+                            <p><strong>Meetup Location:</strong> <span id="result-ksu-meetup"></span></p>
+                            <p><strong>Preferred Delivery Day:</strong> <span id="result-ksu-day"></span></p>
+                        </div>
                         <p><strong>Total:</strong> <span id="result-total"></span></p>
                     </div>
 
@@ -110,9 +115,22 @@
                 const date = data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
                 document.getElementById('result-date').textContent = date;
 
-                const shippingLabel = data.shipping === 'express' ? 'Express (2–3 days)' : 'Standard (5–7 days)';
+                const isKsu = data.deliveryMethod === 'ksu';
+                const shippingLabel = isKsu
+                    ? 'KSU Campus Delivery'
+                    : (data.shipping === 'express' ? 'Express (2–3 days)' : 'Standard (5–7 days)');
                 document.getElementById('result-shipping').textContent = shippingLabel;
                 document.getElementById('result-total').textContent = '$' + Number(data.total).toFixed(2);
+
+                const ksuWrap = document.getElementById('result-ksu-wrap');
+                if (isKsu) {
+                    document.getElementById('result-ksu-campus').textContent = data.ksuCampus || '—';
+                    document.getElementById('result-ksu-meetup').textContent = data.ksuMeetupLocation || '—';
+                    document.getElementById('result-ksu-day').textContent = data.ksuDeliveryDay || '—';
+                    ksuWrap.style.display = 'block';
+                } else {
+                    ksuWrap.style.display = 'none';
+                }
 
                 const trackingWrap = document.getElementById('result-tracking-wrap');
                 if (data.trackingNumber) {

@@ -141,9 +141,22 @@ db.serialize(() => {
       items TEXT,
       created_at TEXT,
       updated_at TEXT,
-      stripe_session_id TEXT
+      stripe_session_id TEXT,
+      delivery_method TEXT DEFAULT 'ship',
+      ksu_campus TEXT,
+      ksu_meetup_location TEXT,
+      ksu_delivery_day TEXT,
+      ksu_phone TEXT,
+      ksu_id_number TEXT
     )
   `);
+  // Backfill columns for databases created before campus delivery existed.
+  db.run(`ALTER TABLE orders ADD COLUMN delivery_method TEXT DEFAULT 'ship'`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN ksu_campus TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN ksu_meetup_location TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN ksu_delivery_day TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN ksu_phone TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN ksu_id_number TEXT`, () => {});
 });
 
 
@@ -225,6 +238,10 @@ function getItemPrice(item) {
   return Number(item.price || 0);
 }
 
+function isValidKsuId(value) {
+  return typeof value === 'string' && /^00\d{7}$/.test(value.trim());
+}
+
 function getItemColorLabels(product, bucketHatStyle, rowCount) {
   if (product === 'Ruffle Bucket Hat') {
     return bucketHatStyle === 'main-rest'
@@ -264,7 +281,36 @@ function buildOrderConfirmationEmail(order) {
     `;
   }).join('');
 
-  const shippingLabel = order.shipping === 'express' ? 'Express (2–3 days)' : 'Standard (5–7 days)';
+  const isKsuDelivery = order.delivery_method === 'ksu';
+  const shippingLabel = isKsuDelivery
+    ? 'KSU Campus Delivery'
+    : (order.shipping === 'express' ? 'Express (2–3 days)' : 'Standard (5–7 days)');
+
+  const deliveryToHtml = isKsuDelivery
+    ? `
+          <h3 style="color:#5a3e6b;margin:24px 0 8px;font-size:16px;">Campus Delivery Details</h3>
+          <p style="color:#555;margin:0;line-height:1.6;">
+            ${order.full_name}<br>
+            Campus: ${order.ksu_campus || '—'}<br>
+            Meetup Location: ${order.ksu_meetup_location || '—'}<br>
+            Preferred Delivery Day: ${order.ksu_delivery_day || '—'}<br>
+            Phone: ${order.ksu_phone || '—'}<br>
+            KSU ID: ${order.ksu_id_number || '—'}
+          </p>
+          <p style="margin:12px 0 0;color:#666;font-size:14px;">We'll reach out to confirm the exact meetup time once your order is ready — no need to share a dorm or room number.</p>
+    `
+    : `
+          <h3 style="color:#5a3e6b;margin:24px 0 8px;font-size:16px;">Shipping To</h3>
+          <p style="color:#555;margin:0;line-height:1.6;">
+            ${order.full_name}<br>
+            ${order.street}<br>
+            ${order.city}, ${order.state} ${order.postal}
+          </p>
+    `;
+
+  const processingNote = isKsuDelivery
+    ? `Please allow <strong>3–5 business days</strong> for processing before your order is ready. We'll email or text you to confirm your campus meetup time.`
+    : `Please allow <strong>3–5 business days</strong> for processing before your order ships. You'll receive a separate email with your tracking number once it's on the way.`;
 
   return `
     <div style="font-family:Georgia,serif;background:#faf6f2;padding:30px 0;">
@@ -298,7 +344,7 @@ function buildOrderConfirmationEmail(order) {
 
           <table style="width:100%;margin-top:16px;">
             <tr>
-              <td style="padding:6px 0;color:#666;font-size:14px;">Shipping (${shippingLabel})</td>
+              <td style="padding:6px 0;color:#666;font-size:14px;">${isKsuDelivery ? shippingLabel : `Shipping (${shippingLabel})`}</td>
               <td style="padding:6px 0;text-align:right;color:#666;font-size:14px;">$${Number(order.shipping_cost).toFixed(2)}</td>
             </tr>
             <tr style="border-top:2px solid #e8dff0;">
@@ -307,14 +353,9 @@ function buildOrderConfirmationEmail(order) {
             </tr>
           </table>
 
-          <h3 style="color:#5a3e6b;margin:24px 0 8px;font-size:16px;">Shipping To</h3>
-          <p style="color:#555;margin:0;line-height:1.6;">
-            ${order.full_name}<br>
-            ${order.street}<br>
-            ${order.city}, ${order.state} ${order.postal}
-          </p>
+          ${deliveryToHtml}
 
-          <p style="margin:24px 0 0;color:#666;font-size:14px;">Please allow <strong>3–5 business days</strong> for processing before your order ships. You'll receive a separate email with your tracking number once it's on the way.</p>
+          <p style="margin:24px 0 0;color:#666;font-size:14px;">${processingNote}</p>
         </div>
 
         <div style="background:#f3eaf8;padding:20px 32px;text-align:center;">
@@ -354,17 +395,34 @@ async function sendOwnerNotificationEmail(order) {
   `;
   }).join('');
 
+  const isKsuDelivery = order.delivery_method === 'ksu';
+  const deliveryHtml = isKsuDelivery
+    ? `
+      <h3 style="margin-top:1.5rem;color:#b00020;">🎓 KSU Campus Delivery — do not mail this order!</h3>
+      <p>
+        Campus: ${order.ksu_campus || '—'}<br>
+        Meetup Location: ${order.ksu_meetup_location || '—'}<br>
+        Preferred Delivery Day: ${order.ksu_delivery_day || '—'}<br>
+        Phone: ${order.ksu_phone || '—'}<br>
+        KSU ID: ${order.ksu_id_number || '—'}
+      </p>
+    `
+    : `
+      <h3 style="margin-top:1.5rem;">Ship To</h3>
+      <p>${order.street}<br>${order.city}, ${order.state} ${order.postal}</p>
+    `;
+
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
       <h2 style="color:#9b6ea8;">🧶 New Order Received!</h2>
       <p><strong>Order #:</strong> ${order.order_number}</p>
       <p><strong>Date:</strong> ${new Date(order.created_at).toLocaleString()}</p>
+      <p><strong>Delivery Method:</strong> ${isKsuDelivery ? 'KSU Campus Delivery' : 'Ship My Order'}</p>
 
       <h3 style="margin-top:1.5rem;">Customer</h3>
       <p>${order.full_name}<br>${order.email}</p>
 
-      <h3 style="margin-top:1.5rem;">Ship To</h3>
-      <p>${order.street}<br>${order.city}, ${order.state} ${order.postal}</p>
+      ${deliveryHtml}
 
       <h3 style="margin-top:1.5rem;">Items</h3>
       <table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;">
@@ -380,7 +438,7 @@ async function sendOwnerNotificationEmail(order) {
         <tbody>${itemsHtml}</tbody>
       </table>
 
-      <p style="margin-top:1rem;"><strong>Shipping:</strong> ${order.shipping} — $${order.shipping_cost}</p>
+      <p style="margin-top:1rem;"><strong>${isKsuDelivery ? 'Delivery Fee' : 'Shipping'}:</strong> ${isKsuDelivery ? 'KSU Campus Delivery' : order.shipping} — $${order.shipping_cost}</p>
       <p><strong>Total Charged:</strong> $${order.total}</p>
     </div>
   `;
@@ -786,6 +844,10 @@ app.get('/order-lookup', orderLookupLimiter, async (req, res) => {
       shippingCost: order.shipping_cost,
       trackingNumber: order.tracking_number || null,
       createdAt: order.created_at,
+      deliveryMethod: order.delivery_method || 'ship',
+      ksuCampus: order.ksu_campus || null,
+      ksuMeetupLocation: order.ksu_meetup_location || null,
+      ksuDeliveryDay: order.ksu_delivery_day || null,
     });
   } catch (err) {
     console.error('Order lookup error:', err);
@@ -868,16 +930,29 @@ app.post('/orders', async (req, res) => {
       shipping,
       shippingCost,
       total,
-      items
+      items,
+      deliveryMethod,
+      ksuCampus,
+      ksuMeetupLocation,
+      ksuDeliveryDay,
+      ksuPhone,
+      ksuId
     } = req.body;
 
     if (!email || !items?.length) {
       return res.status(400).json({ error: 'Email and order items are required.' });
     }
 
+    const normalizedDeliveryMethod = deliveryMethod === 'ksu' ? 'ksu' : 'ship';
+
+    if (normalizedDeliveryMethod === 'ksu' && !isValidKsuId(ksuId)) {
+      return res.status(400).json({ error: 'A valid 9-digit KSU ID number (starting with 00 or 000) is required for campus delivery.' });
+    }
+
     if (await isWeeklyOrderLimitReached()) {
       return res.status(429).json({ error: 'Weekly order limit reached. Please try again next week.' });
     }
+
     try {
       const token = req.cookies.token;
       if (token) {
@@ -898,8 +973,9 @@ app.post('/orders', async (req, res) => {
     await runAsync(
       `INSERT INTO orders (
         order_number, full_name, email, street, city, state, postal,
-        shipping, shipping_cost, total, status, items, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        shipping, shipping_cost, total, status, items, created_at, updated_at,
+        delivery_method, ksu_campus, ksu_meetup_location, ksu_delivery_day, ksu_phone, ksu_id_number
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         orderNumber,
         fullName,
@@ -914,7 +990,13 @@ app.post('/orders', async (req, res) => {
         'confirmed',
         itemsJson,
         now,
-        now
+        now,
+        normalizedDeliveryMethod,
+        ksuCampus || null,
+        ksuMeetupLocation || null,
+        ksuDeliveryDay || null,
+        ksuPhone || null,
+        normalizedDeliveryMethod === 'ksu' ? ksuId.trim() : null
       ]
     );
 
@@ -931,7 +1013,13 @@ app.post('/orders', async (req, res) => {
       shipping_cost: shippingCost,
       total,
       status: 'confirmed',
-      items
+      items,
+      delivery_method: normalizedDeliveryMethod,
+      ksu_campus: ksuCampus || null,
+      ksu_meetup_location: ksuMeetupLocation || null,
+      ksu_delivery_day: ksuDeliveryDay || null,
+      ksu_phone: ksuPhone || null,
+      ksu_id_number: normalizedDeliveryMethod === 'ksu' ? ksuId.trim() : null
     };
 
     await sendOrderConfirmationEmail(order);
@@ -958,11 +1046,22 @@ app.post('/create-checkout-session', async (req, res) => {
       total,
       items,
       lineItems,
-      promotionCodeId
+      promotionCodeId,
+      deliveryMethod,
+      ksuCampus,
+      ksuMeetupLocation,
+      ksuDeliveryDay,
+      ksuPhone,
+      ksuId
     } = req.body;
 
     if (!email || !items?.length || !Array.isArray(lineItems) || !lineItems.length) {
       return res.status(400).json({ error: 'Email, order items, and Stripe line items are required.' });
+    }
+
+    const normalizedDeliveryMethod = deliveryMethod === 'ksu' ? 'ksu' : 'ship';
+    if (normalizedDeliveryMethod === 'ksu' && !isValidKsuId(ksuId)) {
+      return res.status(400).json({ error: 'A valid 9-digit KSU ID number (starting with 00 or 000) is required for campus delivery.' });
     }
 
     if (await isWeeklyOrderLimitReached()) {
@@ -995,8 +1094,9 @@ app.post('/create-checkout-session', async (req, res) => {
     const insertResult = await runAsync(
       `INSERT INTO orders (
         order_number, full_name, email, street, city, state, postal,
-        shipping, shipping_cost, total, status, items, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        shipping, shipping_cost, total, status, items, created_at, updated_at,
+        delivery_method, ksu_campus, ksu_meetup_location, ksu_delivery_day, ksu_phone, ksu_id_number
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         orderNumber,
         fullName,
@@ -1011,7 +1111,13 @@ app.post('/create-checkout-session', async (req, res) => {
         'payment_pending',
         itemsJson,
         now,
-        now
+        now,
+        normalizedDeliveryMethod,
+        ksuCampus || null,
+        ksuMeetupLocation || null,
+        ksuDeliveryDay || null,
+        ksuPhone || null,
+        normalizedDeliveryMethod === 'ksu' ? ksuId.trim() : null
       ]
     );
 
