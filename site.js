@@ -193,6 +193,11 @@ const productImageSets = {
     'Pictures/Orange Scrunchie.JPG',
     'Pictures/Purple Scrunchie.JPG',
     'Pictures/Tan Scrunchie.JPG'
+  ],
+  striped: [
+    'Pictures/IMG_1248.jpg',
+    'Pictures/IMG_1256.jpg',
+    'Pictures/IMG_1260.jpg'
   ]
 };
 
@@ -201,7 +206,8 @@ const imageIndexes = {
   buckethat: 0,
   ruffle: 0,
   ruffle2: 0,
-  scrunchie: 0
+  scrunchie: 0,
+  striped: 0
 };
 
 function changeSlide(productKey, direction) {
