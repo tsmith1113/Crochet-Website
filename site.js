@@ -198,6 +198,23 @@ const productImageSets = {
     'Pictures/IMG_1248.jpg',
     'Pictures/IMG_1256.jpg',
     'Pictures/IMG_1260.jpg'
+  ],
+  greenbuckethat: [
+    'Pictures/Green 1.jpg',
+    'Pictures/Green 2.jpg',
+    'Pictures/Green 3.jpg',
+    'Pictures/Green 4.jpg'
+  ],
+  orangebuckethat: [
+    'Pictures/Orange 1.jpg',
+    'Pictures/Orange 2.jpg',
+    'Pictures/Orange 3.jpg',
+    'Pictures/Orange 4.jpg'
+  ],
+  purpleruffle: [
+    'Pictures/Purple 1.jpg',
+    'Pictures/Purple 2.jpg',
+    'Pictures/Purple 3.jpg'
   ]
 };
 
@@ -207,7 +224,10 @@ const imageIndexes = {
   ruffle: 0,
   ruffle2: 0,
   scrunchie: 0,
-  striped: 0
+  striped: 0,
+  greenbuckethat: 0,
+  orangebuckethat: 0,
+  purpleruffle: 0
 };
 
 function changeSlide(productKey, direction) {

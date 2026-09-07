@@ -1120,6 +1120,12 @@ footer {
   transition: opacity 0.3s ease;
 }
 
+.carousel img.bucket-hat-photo {
+  transform: scale(1.25);
+  object-fit: cover;
+  object-position: center 35%;
+}
+
 .carousel-btn {
   position: absolute;
   top: 50%;
