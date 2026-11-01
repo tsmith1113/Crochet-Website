@@ -552,12 +552,6 @@ export function registerCustomerFeatureRoutes({
       if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== birthday) {
         return res.status(400).json({ error: 'Enter a valid birthday.' });
       }
-      const today = new Date();
-      const cutoff = new Date(Date.UTC(today.getUTCFullYear(), date.getUTCMonth(), 1));
-      const isLateForThisMonth = today >= cutoff && today.getUTCMonth() === date.getUTCMonth();
-      if (isLateForThisMonth) {
-        return res.status(400).json({ error: 'Save your birthday before your birthday month begins to receive this year’s reward.' });
-      }
       const updated = await runAsync(
         `UPDATE users SET birthday_date = ?, birthday_set_at = ?
          WHERE id = ? AND birthday_set_at IS NULL`,
