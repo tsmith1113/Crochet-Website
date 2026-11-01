@@ -550,6 +550,11 @@ header {
   gap: 0.6rem;
 }
 
+.birthday-actions {
+  align-items: stretch;
+  flex-direction: column;
+}
+
 .account-feature-actions .button {
   flex-shrink: 0;
 }
