@@ -9,10 +9,16 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import crypto from 'crypto';
+import path from 'path';
+import {
+  initializeCustomerFeatureSchema,
+  registerCustomerFeatureRoutes
+} from './customer-features.js';
 
 dotenv.config();
 
 let JWT_SECRET;
+let customerFeatures;
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -46,6 +52,10 @@ app.use(cors({
 app.use(cookieParser());
 app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const signature = req.headers['stripe-signature'];
+  if (!stripeSecretKey) {
+    console.error('Stripe secret key not configured');
+    return res.status(503).send('Stripe secret key not configured');
+  }
   if (!stripeWebhookSecret) {
     console.error('Stripe webhook secret not configured');
     return res.status(500).send('Stripe webhook secret not configured');
@@ -59,24 +69,62 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === 'checkout.session.completed') {
+  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
     const session = event.data.object;
     const orderId = Number(session.metadata?.orderId);
-    if (orderId) {
+    if (orderId && session.payment_status === 'paid') {
       try {
         const orderRow = await getAsync('SELECT * FROM orders WHERE id = ?', [orderId]);
         if (orderRow) {
-          const order = parseOrderRow(orderRow);
-          await sendOrderConfirmationEmail(order);
-          sendOwnerNotificationEmail(order).catch(err => console.error('Owner notification failed:', err));
+          const wasPending = orderRow.status === 'payment_pending';
+          const paymentIntentId = typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : session.payment_intent?.id || null;
           await runAsync(
-            'UPDATE orders SET status = ?, updated_at = ? WHERE id = ?',
-            ['confirmed', new Date().toISOString(), orderId]
+            `UPDATE orders SET status = 'confirmed', payment_intent_id = ?,
+             total = ?, updated_at = ? WHERE id = ?`,
+            [paymentIntentId, Number(session.amount_total || 0) / 100, new Date().toISOString(), orderId]
           );
+          await customerFeatures.handlePaidOrder(
+            { ...orderRow, status: 'confirmed', total: Number(session.amount_total || 0) / 100 },
+            session
+          );
+          if (wasPending) {
+            const order = parseOrderRow({ ...orderRow, status: 'confirmed', total: Number(session.amount_total || 0) / 100 });
+            await sendOrderConfirmationEmail(order);
+            sendOwnerNotificationEmail(order).catch(err => console.error('Owner notification failed:', err));
+          }
         }
       } catch (err) {
         console.error('Error processing webhook order:', err);
+        return res.status(500).json({ error: 'Unable to process paid order.' });
       }
+    }
+  }
+
+  if (event.type === 'charge.refunded') {
+    try {
+      await customerFeatures.handleRefund(event.data.object, event.id);
+    } catch (err) {
+      console.error('Unable to reverse refunded order points:', err);
+      return res.status(500).json({ error: 'Unable to process refund.' });
+    }
+  }
+
+  if (event.type === 'checkout.session.expired' || event.type === 'checkout.session.async_payment_failed') {
+    try {
+      await customerFeatures.releaseCheckout(event.data.object);
+      const orderId = Number(event.data.object.metadata?.orderId);
+      if (orderId) {
+        await runAsync(
+          `UPDATE orders SET status = 'checkout_expired', updated_at = ?
+           WHERE id = ? AND status = 'payment_pending'`,
+          [new Date().toISOString(), orderId]
+        );
+      }
+    } catch (err) {
+      console.error('Unable to release expired checkout:', err);
+      return res.status(500).json({ error: 'Unable to release expired checkout.' });
     }
   }
 
@@ -85,16 +133,133 @@ app.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (re
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
-const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
-const resendApiKey = process.env.RESEND_API_KEY || '';
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim() || '';
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() || '';
+const resendApiKey = process.env.RESEND_API_KEY?.trim() || '';
 
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2022-11-15'
-});
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey, {
+  apiVersion: '2026-05-27.dahlia'
+}) : null;
 const resend = new Resend(resendApiKey);
 
 const WEEKLY_ORDER_LIMIT = Number(process.env.WEEKLY_ORDER_LIMIT || 20);
+const STRIPE_PRICE_IDS = {
+  Beanie: 'price_1Tf0rJK7MUFGeMDDFHsxUiZu',
+  'Bucket Hat': 'price_1Tf0rJK7MUFGeMDD1U4BIDsU',
+  'Ruffle Bucket Hat': 'price_1Tf0rJK7MUFGeMDDuwZ8kjHG',
+  Scrunchie: 'price_1Tf0rJK7MUFGeMDDXDu3iMZr'
+};
+const PRODUCT_PRICES_CENTS = {
+  Beanie: 2500,
+  'Bucket Hat': 2500,
+  'Ruffle Bucket Hat': 3500,
+  Scrunchie: 800
+};
+
+function normalizeCheckoutItems(input) {
+  if (!Array.isArray(input) || input.length < 1 || input.length > 20) return null;
+  const items = [];
+  for (const item of input) {
+    if (!item || typeof item !== 'object' || !PRODUCT_PRICES_CENTS[item.product]) return null;
+    if (item.isReadyToShip === true) {
+      const inventoryId = Number(item.inventoryId);
+      if (!Number.isInteger(inventoryId) || inventoryId <= 0 ||
+          !['Beanie', 'Bucket Hat', 'Ruffle Bucket Hat'].includes(item.product)) return null;
+      items.push({ product: item.product, inventoryId, isReadyToShip: true, colors: [] });
+      continue;
+    }
+    if (!Array.isArray(item.colors) || item.colors.length < 1 || item.colors.length > 3 ||
+        item.colors.some(color => typeof color !== 'string' || !/^[A-Za-z][A-Za-z -]{0,29}$/.test(color))) return null;
+    const product = item.product;
+    const rowCount = product === 'Scrunchie' ? Number(item.rowCount || 1) : 1;
+    if (!Number.isInteger(rowCount) || rowCount < 1 || rowCount > 3) return null;
+    const bucketHatStyle = product === 'Ruffle Bucket Hat'
+      ? (item.bucketHatStyle === 'main-rest' ? 'main-rest' : item.bucketHatStyle === 'main-outer-top' ? 'main-outer-top' : '')
+      : '';
+    if (product === 'Ruffle Bucket Hat' && !bucketHatStyle) return null;
+    const baseColorCount = product === 'Ruffle Bucket Hat'
+      ? (bucketHatStyle === 'main-rest' ? 2 : 3)
+      : product === 'Scrunchie' ? rowCount : 1;
+    if (item.colors.length !== baseColorCount) return null;
+    const allOneColor = item.allOneColor === true;
+    if (allOneColor && !item.colors.every(color => color === item.colors[0])) return null;
+    const hasExtraColor = product === 'Ruffle Bucket Hat' &&
+      bucketHatStyle === 'main-outer-top' && !allOneColor;
+    if (item.headCircumference && !/^\d{1,2}(?:\.\d{1,2})?$/.test(String(item.headCircumference))) return null;
+    if (item.size && !/^[A-Za-z0-9 -]{1,30}$/.test(String(item.size))) return null;
+    const priceCents = PRODUCT_PRICES_CENTS[product] + (hasExtraColor ? 200 : 0);
+    items.push({
+      product,
+      colors: item.colors,
+      headCircumference: item.headCircumference ? String(item.headCircumference) : '',
+      size: item.size ? String(item.size) : '',
+      allOneColor,
+      bucketHatStyle,
+      rowCount,
+      price: priceCents / 100
+    });
+  }
+  return items;
+}
+
+function buildCheckoutLineItems(items, shipping, deliveryMethod, inventory, bogoInventoryId = null) {
+  const quantities = new Map();
+  const inventoryQuantities = new Map();
+  for (const item of items) {
+    if (item.isReadyToShip) {
+      inventoryQuantities.set(item.inventoryId, (inventoryQuantities.get(item.inventoryId) || 0) + 1);
+    } else {
+      quantities.set(item.product, (quantities.get(item.product) || 0) + 1);
+    }
+  }
+  const lineItems = Array.from(quantities, ([product, quantity]) => ({
+    price: STRIPE_PRICE_IDS[product],
+    quantity
+  }));
+  let totalCents = items.reduce((sum, item) => sum + (item.isReadyToShip ? 0 : Math.round(item.price * 100)), 0);
+  for (const [inventoryId, quantity] of inventoryQuantities) {
+    const inventoryItem = inventory.get(inventoryId);
+    const chargedQuantity = Math.max(0, quantity - (inventoryId === bogoInventoryId ? 1 : 0));
+    if (!inventoryItem || chargedQuantity < 1) continue;
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: { name: `${inventoryItem.name} (Ready-to-Ship)` },
+        unit_amount: inventoryItem.price_cents
+      },
+      quantity: chargedQuantity
+    });
+    totalCents += inventoryItem.price_cents * chargedQuantity;
+  }
+  const extraColorCount = items.filter(item => item.product === 'Ruffle Bucket Hat' && item.price > 35).length;
+  if (extraColorCount) {
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: { name: 'Extra Color Surcharge' },
+        unit_amount: 200
+      },
+      quantity: extraColorCount
+    });
+  }
+  const shippingCents = deliveryMethod === 'ksu' ? 500 : shipping === 'express' ? 1200 : 500;
+  const shippingLabel = deliveryMethod === 'ksu'
+    ? 'KSU Campus Delivery'
+    : shipping === 'express' ? 'Express Shipping (2–3 days)' : 'Standard Shipping (5–7 days)';
+  lineItems.push({
+    price_data: {
+      currency: 'usd',
+      product_data: { name: shippingLabel },
+      unit_amount: shippingCents
+    },
+    quantity: 1
+  });
+  return {
+    lineItems,
+    totalCents: totalCents + shippingCents,
+    inventoryQuantities
+  };
+}
 
 function getWeekStartISOString() {
   const now = new Date();
@@ -115,12 +280,16 @@ async function isWeeklyOrderLimitReached() {
 }
 
 const dbPath = process.env.DB_PATH || '/var/data/orders.db';
+const uploadDirectory = path.resolve(
+  process.env.REVIEW_UPLOAD_DIR || path.join(path.dirname(dbPath), '.review-uploads')
+);
 const db = new sqlite3.Database(dbPath, err => {
   if (err) {
     console.error('Unable to open orders.db', err);
     process.exit(1);
   }
 });
+db.configure('busyTimeout', 10000);
 
 db.serialize(() => {
   db.run(`
@@ -146,8 +315,13 @@ db.serialize(() => {
       ksu_campus TEXT,
       ksu_meetup_location TEXT,
       ksu_delivery_day TEXT,
+      ksu_delivery_time TEXT,
       ksu_phone TEXT,
-      ksu_id_number TEXT
+      ksu_id_number TEXT,
+      missed_delivery_count INTEGER DEFAULT 0,
+      pending_reschedule_day TEXT,
+      pending_reschedule_time TEXT,
+      pending_reschedule_session_id TEXT
     )
   `);
   // Backfill columns for databases created before campus delivery existed.
@@ -155,8 +329,14 @@ db.serialize(() => {
   db.run(`ALTER TABLE orders ADD COLUMN ksu_campus TEXT`, () => {});
   db.run(`ALTER TABLE orders ADD COLUMN ksu_meetup_location TEXT`, () => {});
   db.run(`ALTER TABLE orders ADD COLUMN ksu_delivery_day TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN ksu_delivery_time TEXT`, () => {});
   db.run(`ALTER TABLE orders ADD COLUMN ksu_phone TEXT`, () => {});
   db.run(`ALTER TABLE orders ADD COLUMN ksu_id_number TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN missed_delivery_count INTEGER DEFAULT 0`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN pending_reschedule_day TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN pending_reschedule_time TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN pending_reschedule_session_id TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN delivered_at TEXT`, () => {});
 });
 
 
@@ -204,6 +384,54 @@ const getAsync = (sql, params = []) => new Promise((resolve, reject) => {
   });
 });
 
+const transactionAsync = async callback => {
+  const transactionDb = await new Promise((resolve, reject) => {
+    const connection = new sqlite3.Database(dbPath, error => {
+      if (error) reject(error);
+      else resolve(connection);
+    });
+  });
+  transactionDb.configure('busyTimeout', 10000);
+  const transactionRun = (sql, params = []) => new Promise((resolve, reject) => {
+    transactionDb.run(sql, params, function (error) {
+      if (error) return reject(error);
+      resolve({ lastID: this.lastID, changes: this.changes });
+    });
+  });
+  const transactionGet = (sql, params = []) => new Promise((resolve, reject) => {
+    transactionDb.get(sql, params, (error, row) => {
+      if (error) return reject(error);
+      resolve(row);
+    });
+  });
+  const transactionAll = (sql, params = []) => new Promise((resolve, reject) => {
+    transactionDb.all(sql, params, (error, rows) => {
+      if (error) return reject(error);
+      resolve(rows);
+    });
+  });
+
+  try {
+    await transactionRun('BEGIN IMMEDIATE');
+    const result = await callback({
+      runAsync: transactionRun,
+      getAsync: transactionGet,
+      allAsync: transactionAll
+    });
+    await transactionRun('COMMIT');
+    return result;
+  } catch (error) {
+    await transactionRun('ROLLBACK').catch(rollbackError => {
+      console.error('Unable to roll back SQLite transaction:', rollbackError);
+    });
+    throw error;
+  } finally {
+    await new Promise((resolve, reject) => {
+      transactionDb.close(error => error ? reject(error) : resolve());
+    });
+  }
+};
+
 async function requireAdmin(req, res, next) {
   try {
     const token = req.cookies.token;
@@ -234,12 +462,50 @@ function createOrderNumber() {
   return `ORD-${Date.now()}`;
 }
 
+// Order production pipeline. `confirmed` is set by the order/webhook routes and
+// `shipped` is set by /orders/:id/ship — both stay on their existing dedicated
+// routes. This list is only the statuses settable via PATCH /orders/:id/status.
+const ORDER_STATUS_STEPS = [
+  { key: 'confirmed', label: 'Order Confirmed', description: 'Payment received' },
+  { key: 'preparing', label: 'Preparing Your Order', description: 'Materials and details confirmed' },
+  { key: 'making', label: 'Making Your Hat', description: 'Your handmade item is being crocheted' },
+  { key: 'ready', label: 'Ready to Ship', description: 'Order packaged and ready' },
+  { key: 'shipped', label: 'Shipped', description: 'Your package is on the way' },
+  { key: 'delivered', label: 'Delivered', description: 'Your order has arrived' }
+];
+const ADVANCEABLE_ORDER_STATUSES = ORDER_STATUS_STEPS
+  .map(step => step.key)
+  .filter(key => key !== 'confirmed' && key !== 'shipped');
+
 function getItemPrice(item) {
   return Number(item.price || 0);
 }
 
 function isValidKsuId(value) {
   return typeof value === 'string' && /^00\d{7}$/.test(value.trim());
+}
+
+function isValidKsuDeliveryTime(value) {
+  if (typeof value !== 'string') return false;
+  const match = /^(\d{1,2}):(\d{2}) (AM|PM)$/.exec(value.trim());
+  if (!match) return false;
+  let hour = Number(match[1]) % 12;
+  if (match[3] === 'PM') hour += 12;
+  const minutes = Number(match[2]);
+  return hour < 18 || (hour === 18 && minutes === 0);
+}
+
+const KSU_LATE_FEE_AMOUNT = 10;
+const KSU_GRACE_PERIOD_MINUTES = 10;
+
+async function findOrderByNumberAndLastName(orderNumber, lastName) {
+  if (!orderNumber || !lastName) return null;
+  const order = await getAsync('SELECT * FROM orders WHERE order_number = ?', [orderNumber.trim()]);
+  if (!order) return null;
+  const nameParts = (order.full_name || '').trim().split(' ');
+  const storedLastName = nameParts[nameParts.length - 1].toLowerCase();
+  if (storedLastName !== lastName.trim().toLowerCase()) return null;
+  return order;
 }
 
 function getItemColorLabels(product, bucketHatStyle, rowCount) {
@@ -294,10 +560,12 @@ function buildOrderConfirmationEmail(order) {
             Campus: ${order.ksu_campus || '—'}<br>
             Meetup Location: ${order.ksu_meetup_location || '—'}<br>
             Preferred Delivery Day: ${order.ksu_delivery_day || '—'}<br>
+            Preferred Delivery Time: ${order.ksu_delivery_time || '—'} (no later than 6:00 PM)<br>
             Phone: ${order.ksu_phone || '—'}<br>
             KSU ID: ${order.ksu_id_number || '—'}
           </p>
           <p style="margin:12px 0 0;color:#666;font-size:14px;">We'll reach out to confirm the exact meetup time once your order is ready — no need to share a dorm or room number.</p>
+          <p style="margin:8px 0 0;color:#b00020;font-size:13px;">⏰ There's a 10-minute grace period for your delivery time. If you're more than 10 minutes late, a $10 late fee applies and you'll need to <a href="${process.env.SITE_URL || 'http://localhost:3000'}/missed-delivery" style="color:#b00020;">reschedule your delivery here</a>.</p>
     `
     : `
           <h3 style="color:#5a3e6b;margin:24px 0 8px;font-size:16px;">Shipping To</h3>
@@ -403,6 +671,7 @@ async function sendOwnerNotificationEmail(order) {
         Campus: ${order.ksu_campus || '—'}<br>
         Meetup Location: ${order.ksu_meetup_location || '—'}<br>
         Preferred Delivery Day: ${order.ksu_delivery_day || '—'}<br>
+        Preferred Delivery Time: ${order.ksu_delivery_time || '—'}<br>
         Phone: ${order.ksu_phone || '—'}<br>
         KSU ID: ${order.ksu_id_number || '—'}
       </p>
@@ -466,6 +735,64 @@ async function sendShippingEmail(order, trackingNumber) {
   });
 }
 
+function getOrderItemsSummary(order) {
+  return (order.items || []).map(item => item.product).join(', ') || 'your order';
+}
+
+async function sendProductionStartedEmail(order) {
+  return resend.emails.send({
+    from: 'orders@stitchedbytrae.com',
+    replyTo: 'stitchedbytrae@gmail.com',
+    to: order.email,
+    subject: `🧶 We've started making your order #${order.order_number}!`,
+    html: `
+      <div style="font-family:Georgia,serif;background:#faf6f2;padding:30px 0;">
+        <div style="max-width:580px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+          <div style="background:#9b6ea8;padding:28px 32px;text-align:center;">
+            <h1 style="color:#fff;margin:0;font-size:24px;letter-spacing:1px;">🧶 Stitched By Trae</h1>
+            <p style="color:#f3eaf8;margin:6px 0 0;font-size:14px;">Handmade with love</p>
+          </div>
+          <div style="padding:28px 32px;">
+            <h2 style="color:#5a3e6b;margin:0 0 6px;">Your hat is being made!</h2>
+            <p style="color:#555;line-height:1.6;">Good news — we've started crocheting <strong>${getOrderItemsSummary(order)}</strong> for order <strong>#${order.order_number}</strong>. We'll let you know as soon as it's ready to ship.</p>
+          </div>
+          <div style="background:#f3eaf8;padding:20px 32px;text-align:center;">
+            <p style="margin:0;font-size:13px;color:#888;">Questions? Email us at <a href="mailto:stitchedbytrae@gmail.com" style="color:#9b6ea8;">stitchedbytrae@gmail.com</a></p>
+            <p style="margin:6px 0 0;font-size:12px;color:#bbb;">© 2026 Stitched By Trae</p>
+          </div>
+        </div>
+      </div>
+    `
+  });
+}
+
+async function sendDeliveryConfirmationEmail(order) {
+  return resend.emails.send({
+    from: 'orders@stitchedbytrae.com',
+    replyTo: 'stitchedbytrae@gmail.com',
+    to: order.email,
+    subject: `💜 Your order #${order.order_number} has arrived!`,
+    html: `
+      <div style="font-family:Georgia,serif;background:#faf6f2;padding:30px 0;">
+        <div style="max-width:580px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+          <div style="background:#9b6ea8;padding:28px 32px;text-align:center;">
+            <h1 style="color:#fff;margin:0;font-size:24px;letter-spacing:1px;">🧶 Stitched By Trae</h1>
+            <p style="color:#f3eaf8;margin:6px 0 0;font-size:14px;">Handmade with love</p>
+          </div>
+          <div style="padding:28px 32px;">
+            <h2 style="color:#5a3e6b;margin:0 0 6px;">Your order has arrived! 💜</h2>
+            <p style="color:#555;line-height:1.6;">We hope you love <strong>${getOrderItemsSummary(order)}</strong> from order <strong>#${order.order_number}</strong> as much as we loved making it. Thank you for supporting a small handmade shop!</p>
+          </div>
+          <div style="background:#f3eaf8;padding:20px 32px;text-align:center;">
+            <p style="margin:0;font-size:13px;color:#888;">Questions? Email us at <a href="mailto:stitchedbytrae@gmail.com" style="color:#9b6ea8;">stitchedbytrae@gmail.com</a></p>
+            <p style="margin:6px 0 0;font-size:12px;color:#bbb;">© 2026 Stitched By Trae</p>
+          </div>
+        </div>
+      </div>
+    `
+  });
+}
+
 async function sendVerificationEmail(email, name, token) {
   const origin = process.env.SITE_URL || 'http://localhost:3000';
   return resend.emails.send({
@@ -517,10 +844,18 @@ app.post('/signup', signupLimiter, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    await runAsync(
-      'INSERT INTO users (name, email, password, email_verified, verification_token) VALUES (?, ?, ?, 0, ?)',
-      [name, email, hashedPassword, verificationToken]
-    );
+    const insertedUser = await transactionAsync(async ({ runAsync: txRun }) => {
+      const result = await txRun(
+        'INSERT INTO users (name, email, password, email_verified, verification_token) VALUES (?, ?, ?, 0, ?)',
+        [name, email, hashedPassword, verificationToken]
+      );
+      await txRun(
+        `INSERT INTO rewards_ledger (user_id, points, activity, event_key, created_at)
+         VALUES (?, 50, 'Created an account', ?, ?)`,
+        [result.lastID, `signup:${result.lastID}`, new Date().toISOString()]
+      );
+      return result;
+    });
 
     try { await sendVerificationEmail(email, name, verificationToken); } catch (e) { console.error('Resend error:', e); }
 
@@ -826,14 +1161,8 @@ app.get('/order-lookup', orderLookupLimiter, async (req, res) => {
     return res.sendFile('order-lookup.html', { root: process.cwd() });
   }
   try {
-    const order = await getAsync('SELECT * FROM orders WHERE order_number = ?', [orderNumber.trim()]);
+    const order = await findOrderByNumberAndLastName(orderNumber, lastName);
     if (!order) return res.status(404).json({ error: 'Order not found. Please check your order number and last name.' });
-
-    const nameParts = (order.full_name || '').trim().split(' ');
-    const storedLastName = nameParts[nameParts.length - 1].toLowerCase();
-    if (storedLastName !== lastName.trim().toLowerCase()) {
-      return res.status(404).json({ error: 'Order not found. Please check your order number and last name.' });
-    }
 
     return res.json({
       orderNumber: order.order_number,
@@ -848,6 +1177,8 @@ app.get('/order-lookup', orderLookupLimiter, async (req, res) => {
       ksuCampus: order.ksu_campus || null,
       ksuMeetupLocation: order.ksu_meetup_location || null,
       ksuDeliveryDay: order.ksu_delivery_day || null,
+      ksuDeliveryTime: order.ksu_delivery_time || null,
+      missedDeliveryCount: order.missed_delivery_count || 0,
     });
   } catch (err) {
     console.error('Order lookup error:', err);
@@ -935,8 +1266,10 @@ app.post('/orders', async (req, res) => {
       ksuCampus,
       ksuMeetupLocation,
       ksuDeliveryDay,
+      ksuDeliveryTime,
       ksuPhone,
-      ksuId
+      ksuId,
+      ksuPolicyAck
     } = req.body;
 
     if (!email || !items?.length) {
@@ -947,6 +1280,14 @@ app.post('/orders', async (req, res) => {
 
     if (normalizedDeliveryMethod === 'ksu' && !isValidKsuId(ksuId)) {
       return res.status(400).json({ error: 'A valid 9-digit KSU ID number (starting with 00 or 000) is required for campus delivery.' });
+    }
+
+    if (normalizedDeliveryMethod === 'ksu' && !isValidKsuDeliveryTime(ksuDeliveryTime)) {
+      return res.status(400).json({ error: 'A preferred delivery time no later than 6:00 PM is required for campus delivery.' });
+    }
+
+    if (normalizedDeliveryMethod === 'ksu' && ksuPolicyAck !== true) {
+      return res.status(400).json({ error: 'You must acknowledge the campus delivery late fee policy.' });
     }
 
     if (await isWeeklyOrderLimitReached()) {
@@ -974,8 +1315,8 @@ app.post('/orders', async (req, res) => {
       `INSERT INTO orders (
         order_number, full_name, email, street, city, state, postal,
         shipping, shipping_cost, total, status, items, created_at, updated_at,
-        delivery_method, ksu_campus, ksu_meetup_location, ksu_delivery_day, ksu_phone, ksu_id_number
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        delivery_method, ksu_campus, ksu_meetup_location, ksu_delivery_day, ksu_delivery_time, ksu_phone, ksu_id_number
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         orderNumber,
         fullName,
@@ -995,6 +1336,7 @@ app.post('/orders', async (req, res) => {
         ksuCampus || null,
         ksuMeetupLocation || null,
         ksuDeliveryDay || null,
+        ksuDeliveryTime || null,
         ksuPhone || null,
         normalizedDeliveryMethod === 'ksu' ? ksuId.trim() : null
       ]
@@ -1018,6 +1360,7 @@ app.post('/orders', async (req, res) => {
       ksu_campus: ksuCampus || null,
       ksu_meetup_location: ksuMeetupLocation || null,
       ksu_delivery_day: ksuDeliveryDay || null,
+      ksu_delivery_time: ksuDeliveryTime || null,
       ksu_phone: ksuPhone || null,
       ksu_id_number: normalizedDeliveryMethod === 'ksu' ? ksuId.trim() : null
     };
@@ -1036,27 +1379,29 @@ app.post('/create-checkout-session', async (req, res) => {
   try {
     const {
       fullName,
-      email,
+      email: submittedEmail,
       street,
       city,
       state,
       postal,
       shipping,
-      shippingCost,
-      total,
-      items,
-      lineItems,
       promotionCodeId,
+      discountCode,
+      referralCode,
       deliveryMethod,
       ksuCampus,
       ksuMeetupLocation,
       ksuDeliveryDay,
+      ksuDeliveryTime,
       ksuPhone,
-      ksuId
+      ksuId,
+      ksuPolicyAck
     } = req.body;
 
-    if (!email || !items?.length || !Array.isArray(lineItems) || !lineItems.length) {
-      return res.status(400).json({ error: 'Email, order items, and Stripe line items are required.' });
+    const email = typeof submittedEmail === 'string' ? submittedEmail.trim().toLowerCase() : '';
+    const items = normalizeCheckoutItems(req.body.items);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !items) {
+      return res.status(400).json({ error: 'A valid email and order items are required.' });
     }
 
     const normalizedDeliveryMethod = deliveryMethod === 'ksu' ? 'ksu' : 'ship';
@@ -1064,68 +1409,188 @@ app.post('/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: 'A valid 9-digit KSU ID number (starting with 00 or 000) is required for campus delivery.' });
     }
 
+    if (normalizedDeliveryMethod === 'ksu' && !isValidKsuDeliveryTime(ksuDeliveryTime)) {
+      return res.status(400).json({ error: 'A preferred delivery time no later than 6:00 PM is required for campus delivery.' });
+    }
+
+    if (normalizedDeliveryMethod === 'ksu' && ksuPolicyAck !== true) {
+      return res.status(400).json({ error: 'You must acknowledge the campus delivery late fee policy.' });
+    }
+
     if (await isWeeklyOrderLimitReached()) {
       return res.status(429).json({ error: 'Weekly order limit reached. Please try again next week.' });
     }
 
     if (!stripeSecretKey) {
-  return res.status(500).json({
-    error: 'Stripe secret key is not configured.'
-  });
-}
+      return res.status(500).json({ error: 'Stripe secret key is not configured.' });
+    }
+
+    if (promotionCodeId && discountCode) {
+      return res.status(400).json({ error: 'Only one discount can be used per order. Remove your current discount before applying another offer.' });
+    }
+
+    let customerUser = null;
+    if (req.cookies.token) {
+      try {
+        const decoded = jwt.verify(req.cookies.token, JWT_SECRET);
+        customerUser = await getAsync('SELECT id, email FROM users WHERE id = ?', [decoded.userId]);
+      } catch {
+        if (discountCode) return res.status(401).json({ error: 'Log in to use your account reward.' });
+      }
+    }
+
+    let discount = null;
+    if (discountCode) {
+      if (!customerUser || customerUser.email.toLowerCase() !== email) {
+        return res.status(403).json({ error: 'Log in with the account that owns this discount and use that email at checkout.' });
+      }
+      discount = await customerFeatures.getDiscount(discountCode, customerUser.id);
+      if (!discount) return res.status(400).json({ error: 'This discount is invalid, already used, or belongs to another account.' });
+    }
+
+    let referral = null;
+    if (referralCode) {
+      referral = await customerFeatures.validateReferral(referralCode, email);
+      if (!referral) return res.status(400).json({ error: 'That referral code is invalid or cannot be used with this email.' });
+    }
 
     try {
-      const token = req.cookies.token;
-      if (token) {
-        const decoded = jwt.verify(token, JWT_SECRET);
+      if (customerUser) {
         await runAsync(
           `UPDATE users SET name = ?, street = ?, city = ?, state = ?, postal = ? WHERE id = ?`,
-          [fullName || null, street, city, state, postal, decoded.userId]
+          [fullName || null, street, city, state, postal, customerUser.id]
         );
       }
     } catch (err) {
       console.error('Unable to save customer address:', err);
     }
 
+    const inventory = new Map();
+    for (const item of items.filter(value => value.isReadyToShip)) {
+      if (inventory.has(item.inventoryId)) continue;
+      const inventoryItem = await getAsync(
+        `SELECT id, name, product_name, details, price_cents, quantity
+         FROM ready_to_ship_inventory WHERE id = ? AND active = 1`,
+        [item.inventoryId]
+      );
+      if (!inventoryItem || inventoryItem.product_name !== item.product) {
+        return res.status(400).json({ error: 'A ready-to-ship item is no longer available.' });
+      }
+      inventory.set(item.inventoryId, inventoryItem);
+    }
+
+    if (discount?.kind === 'birthday_bogo') {
+      const freeInventory = inventory.get(discount.inventory_id);
+      const freeHatCount = items.filter(item =>
+        item.isReadyToShip && item.inventoryId === discount.inventory_id
+      ).length;
+      const hasFreeHat = freeHatCount > 0;
+      const hasQualifyingPaidHat = freeInventory && items.some(item =>
+        item.isReadyToShip &&
+        inventory.has(item.inventoryId) &&
+        inventory.get(item.inventoryId).price_cents >= freeInventory.price_cents &&
+        (item.inventoryId !== discount.inventory_id || freeHatCount >= 2)
+      );
+      if (!hasFreeHat || !hasQualifyingPaidHat) {
+        return res.status(400).json({
+          error: 'Add another eligible ready-to-ship hat of equal or greater value to use this birthday BOGO.'
+        });
+      }
+    }
+
+    const { lineItems, totalCents, inventoryQuantities } = buildCheckoutLineItems(
+      items,
+      shipping,
+      normalizedDeliveryMethod,
+      inventory,
+      discount?.kind === 'birthday_bogo' ? discount.inventory_id : null
+    );
+    if (discount?.kind === 'points' && totalCents <= discount.amount_cents) {
+      return res.status(400).json({ error: 'This reward cannot exceed the order total. Add an eligible purchase or choose another discount.' });
+    }
+
+    const storedItems = items.map(item => {
+      if (!item.isReadyToShip) return item;
+      const inventoryItem = inventory.get(item.inventoryId);
+      const index = items.filter(previous => previous.isReadyToShip && previous.inventoryId === item.inventoryId)
+        .slice(0, items.indexOf(item)).length;
+      const isBogoFree = discount?.kind === 'birthday_bogo' &&
+        item.inventoryId === discount.inventory_id && index === 0;
+      return {
+        product: item.product,
+        colors: [],
+        isReadyToShip: true,
+        inventoryId: item.inventoryId,
+        inventoryName: inventoryItem.name,
+        inventoryDetails: inventoryItem.details,
+        birthdayBogoFree: isBogoFree,
+        price: isBogoFree ? 0 : inventoryItem.price_cents / 100
+      };
+    });
+
     const orderNumber = createOrderNumber();
     const now = new Date().toISOString();
-    const itemsJson = JSON.stringify(items.map(item => ({ ...item, price: getItemPrice(item) })));
-
-    const insertResult = await runAsync(
-      `INSERT INTO orders (
-        order_number, full_name, email, street, city, state, postal,
-        shipping, shipping_cost, total, status, items, created_at, updated_at,
-        delivery_method, ksu_campus, ksu_meetup_location, ksu_delivery_day, ksu_phone, ksu_id_number
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        orderNumber,
-        fullName,
-        email,
-        street,
-        city,
-        state,
-        postal,
-        shipping,
-        shippingCost,
-        total,
-        'payment_pending',
-        itemsJson,
-        now,
-        now,
-        normalizedDeliveryMethod,
-        ksuCampus || null,
-        ksuMeetupLocation || null,
-        ksuDeliveryDay || null,
-        ksuPhone || null,
-        normalizedDeliveryMethod === 'ksu' ? ksuId.trim() : null
-      ]
-    );
+    const itemsJson = JSON.stringify(storedItems);
+    const computedShippingCents = normalizedDeliveryMethod === 'ksu' ? 500 : shipping === 'express' ? 1200 : 500;
+    const computedShipping = computedShippingCents / 100;
+    let insertResult;
+    try {
+      insertResult = await transactionAsync(async ({ runAsync: txRun }) => {
+        const insertedOrder = await txRun(
+          `INSERT INTO orders (
+            order_number, full_name, email, street, city, state, postal,
+            shipping, shipping_cost, total, status, items, created_at, updated_at,
+            delivery_method, ksu_campus, ksu_meetup_location, ksu_delivery_day, ksu_delivery_time,
+            ksu_phone, ksu_id_number, referral_code, reward_discount_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            orderNumber, fullName || '', email, street || '', city || '', state || '', postal || '',
+            normalizedDeliveryMethod === 'ksu' ? 'ksu' : shipping,
+            computedShipping, totalCents / 100, 'payment_pending', itemsJson, now, now,
+            normalizedDeliveryMethod, ksuCampus || null, ksuMeetupLocation || null,
+            ksuDeliveryDay || null, ksuDeliveryTime || null, ksuPhone || null,
+            normalizedDeliveryMethod === 'ksu' ? ksuId.trim() : null,
+            referral ? String(referralCode).trim() : null,
+            discount?.id || null
+          ]
+        );
+        for (const [inventoryId, quantity] of inventoryQuantities) {
+          const reserved = await txRun(
+            `UPDATE ready_to_ship_inventory SET quantity = quantity - ?, updated_at = ?
+             WHERE id = ? AND active = 1 AND quantity >= ?`,
+            [quantity, now, inventoryId, quantity]
+          );
+          if (!reserved.changes) throw new Error('INVENTORY_UNAVAILABLE');
+          await txRun(
+            `INSERT INTO inventory_reservations (order_id, inventory_id, quantity, created_at)
+             VALUES (?, ?, ?, ?)`,
+            [insertedOrder.lastID, inventoryId, quantity, now]
+          );
+        }
+        if (discount) {
+          const reserved = await txRun(
+            `UPDATE reward_discounts SET status = 'reserved'
+             WHERE id = ? AND status = 'available'`,
+            [discount.id]
+          );
+          if (!reserved.changes) throw new Error('DISCOUNT_UNAVAILABLE');
+        }
+        return insertedOrder;
+      });
+    } catch (error) {
+      if (error.message === 'INVENTORY_UNAVAILABLE') {
+        return res.status(409).json({ error: 'One or more ready-to-ship items sold out. Refresh the page and update your cart.' });
+      }
+      if (error.message === 'DISCOUNT_UNAVAILABLE') {
+        return res.status(409).json({ error: 'This discount was just used or is already being checked out.' });
+      }
+      throw error;
+    }
 
     const createdId = insertResult.lastID;
-    const origin = req.headers.origin || `http://localhost:${process.env.PORT || 3000}`;
+    const origin = (process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
 
     const sessionParams = {
-      payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -1133,14 +1598,29 @@ app.post('/create-checkout-session', async (req, res) => {
       customer_email: email,
       metadata: { orderNumber, orderId: String(createdId) }
     };
-    if (promotionCodeId) {
+    if (discount?.kind === 'points') {
+      sessionParams.discounts = [{ coupon: discount.couponId }];
+    } else if (promotionCodeId) {
       sessionParams.discounts = [{ promotion_code: promotionCodeId }];
-    } else {
+    } else if (!discount) {
       sessionParams.allow_promotion_codes = true;
     }
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (error) {
+      await customerFeatures.releaseCheckout({ metadata: { orderId: String(createdId) } });
+      await runAsync('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?', ['checkout_failed', new Date().toISOString(), createdId]);
+      throw error;
+    }
 
     await runAsync('UPDATE orders SET stripe_session_id = ? WHERE id = ?', [session.id, createdId]);
+    if (discount) {
+      await runAsync(
+        'UPDATE reward_discounts SET checkout_session_id = ? WHERE id = ? AND status = ?',
+        [session.id, discount.id, 'reserved']
+      );
+    }
 
     res.json({ url: session.url, orderNumber, orderId: createdId });
   } catch (error) {
@@ -1152,14 +1632,42 @@ app.post('/create-checkout-session', async (req, res) => {
 app.get('/validate-promo', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).json({ error: 'No code provided' });
+  if (!stripe) return res.status(503).json({ error: 'Stripe is not configured.' });
   try {
-    const results = await stripe.promotionCodes.list({ code: code.trim(), active: true, limit: 1 });
+    const results = await stripe.promotionCodes.list({
+      code: code.trim(),
+      active: true,
+      limit: 1,
+      expand: ['data.promotion.coupon']
+    });
     const promo = results.data[0];
     if (!promo) return res.status(404).json({ error: 'Invalid or expired promo code' });
-    const coupon = promo.coupon;
-    const discount = coupon.amount_off ? coupon.amount_off / 100 : null;
-    if (!discount) return res.status(400).json({ error: 'This code does not apply a fixed discount' });
-    res.json({ valid: true, discount, promotionCodeId: promo.id, label: coupon.name || code.trim() });
+    const promotion = promo.promotion;
+    if (promotion?.type !== 'coupon') {
+      return res.status(400).json({ error: 'This promotion type is not supported at checkout.' });
+    }
+    const couponValue = promotion.coupon;
+    const coupon = typeof couponValue === 'object'
+      ? couponValue
+      : await stripe.coupons.retrieve(couponValue);
+    if (coupon.amount_off != null) {
+      return res.json({
+        valid: true,
+        discount: coupon.amount_off / 100,
+        promotionCodeId: promo.id,
+        label: coupon.name || code.trim()
+      });
+    }
+    if (coupon.percent_off != null) {
+      return res.json({
+        valid: true,
+        discount: null,
+        percentOff: coupon.percent_off,
+        promotionCodeId: promo.id,
+        label: coupon.name || code.trim()
+      });
+    }
+    return res.status(400).json({ error: 'This promotion does not apply a supported discount.' });
   } catch (err) {
     console.error('Promo validation error:', err);
     res.status(500).json({ error: 'Unable to validate promo code' });
@@ -1169,6 +1677,7 @@ app.get('/validate-promo', async (req, res) => {
 app.get('/confirm-order', async (req, res) => {
   const { session_id } = req.query;
   if (!session_id) return res.status(400).json({ error: 'Missing session_id' });
+  if (!stripe) return res.status(503).json({ error: 'Stripe is not configured.' });
 
   try {
     const session = await stripe.checkout.sessions.retrieve(session_id);
@@ -1182,12 +1691,20 @@ app.get('/confirm-order', async (req, res) => {
     const orderRow = await getAsync('SELECT * FROM orders WHERE id = ?', [orderId]);
     if (!orderRow) return res.status(404).json({ error: 'Order not found' });
 
+    const paymentIntentId = typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent?.id || null;
+    await runAsync(
+      `UPDATE orders SET status = 'confirmed', payment_intent_id = ?, total = ?, updated_at = ?
+       WHERE id = ?`,
+      [paymentIntentId, Number(session.amount_total || 0) / 100, new Date().toISOString(), orderId]
+    );
+    await customerFeatures.handlePaidOrder(
+      { ...orderRow, status: 'confirmed', total: Number(session.amount_total || 0) / 100 },
+      session
+    );
     if (orderRow.status !== 'confirmed') {
-      await runAsync(
-        'UPDATE orders SET status = ?, updated_at = ? WHERE id = ?',
-        ['confirmed', new Date().toISOString(), orderId]
-      );
-      const order = parseOrderRow({ ...orderRow, status: 'confirmed' });
+      const order = parseOrderRow({ ...orderRow, status: 'confirmed', total: Number(session.amount_total || 0) / 100 });
       sendOrderConfirmationEmail(order).catch(err => console.error('Confirmation email failed:', err));
       sendOwnerNotificationEmail(order).catch(err => console.error('Owner notification failed:', err));
     }
@@ -1196,6 +1713,139 @@ app.get('/confirm-order', async (req, res) => {
   } catch (err) {
     console.error('Confirm order error:', err);
     res.status(500).json({ error: 'Unable to confirm order' });
+  }
+});
+
+async function sendRescheduleConfirmationEmail(order, newDay, newTime) {
+  return resend.emails.send({
+    from: 'orders@stitchedbytrae.com',
+    replyTo: 'stitchedbytrae@gmail.com',
+    to: order.email,
+    subject: `Delivery rescheduled — Order #${order.order_number}`,
+    html: `
+      <div style="font-family:Georgia,serif;padding:24px;">
+        <h2 style="color:#5a3e6b;">Your campus delivery has been rescheduled 🧶</h2>
+        <p>We've charged the $${KSU_LATE_FEE_AMOUNT} missed-delivery fee and updated your pickup for order <strong>#${order.order_number}</strong>.</p>
+        <p><strong>New Delivery Day:</strong> ${newDay}<br>
+        <strong>New Delivery Time:</strong> ${newTime} (no later than 6:00 PM)</p>
+        <p style="color:#b00020;">Remember: there's a 10-minute grace period. Being more than 10 minutes late will require another reschedule and another $${KSU_LATE_FEE_AMOUNT} fee.</p>
+        <p>Questions? Email us at <a href="mailto:stitchedbytrae@gmail.com">stitchedbytrae@gmail.com</a></p>
+      </div>
+    `
+  });
+}
+
+app.post('/missed-delivery/reschedule', async (req, res) => {
+  try {
+    const { orderNumber, lastName, newDeliveryDay, newDeliveryTime, policyAck } = req.body;
+
+    const order = await findOrderByNumberAndLastName(orderNumber, lastName);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found. Please check your order number and last name.' });
+    }
+
+    if (order.delivery_method !== 'ksu') {
+      return res.status(400).json({ error: 'This order is not set up for KSU Campus Delivery.' });
+    }
+
+    const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    if (!validDays.includes(newDeliveryDay)) {
+      return res.status(400).json({ error: 'Please choose a valid delivery day.' });
+    }
+
+    if (!isValidKsuDeliveryTime(newDeliveryTime)) {
+      return res.status(400).json({ error: 'Please choose a delivery time no later than 6:00 PM.' });
+    }
+
+    if (policyAck !== true) {
+      return res.status(400).json({ error: 'You must acknowledge the late fee policy to reschedule.' });
+    }
+
+    if (!stripeSecretKey) {
+      return res.status(500).json({ error: 'Stripe secret key is not configured.' });
+    }
+
+    const origin = (process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
+
+    const session = await stripe.checkout.sessions.create({
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: { name: `Missed Delivery Late Fee — Order #${order.order_number}` },
+          unit_amount: KSU_LATE_FEE_AMOUNT * 100
+        },
+        quantity: 1
+      }],
+      mode: 'payment',
+      success_url: `${origin}/missed-delivery?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/missed-delivery?canceled=1`,
+      customer_email: order.email,
+      metadata: {
+        orderId: String(order.id),
+        newDeliveryDay,
+        newDeliveryTime
+      }
+    });
+
+    await runAsync(
+      'UPDATE orders SET pending_reschedule_day = ?, pending_reschedule_time = ?, pending_reschedule_session_id = ? WHERE id = ?',
+      [newDeliveryDay, newDeliveryTime, session.id, order.id]
+    );
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Missed delivery reschedule error:', err);
+    res.status(500).json({ error: 'Unable to start the late fee checkout.' });
+  }
+});
+
+app.get('/missed-delivery/confirm', async (req, res) => {
+  const { session_id } = req.query;
+  if (!session_id) return res.status(400).json({ error: 'Missing session_id' });
+  if (!stripe) return res.status(503).json({ error: 'Stripe is not configured.' });
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    if (session.payment_status !== 'paid') {
+      return res.status(402).json({ error: 'Payment not completed' });
+    }
+
+    const orderId = Number(session.metadata?.orderId);
+    if (!orderId) return res.status(400).json({ error: 'Order not found in session' });
+
+    const orderRow = await getAsync('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!orderRow) return res.status(404).json({ error: 'Order not found' });
+
+    const newDay = session.metadata?.newDeliveryDay || orderRow.pending_reschedule_day;
+    const newTime = session.metadata?.newDeliveryTime || orderRow.pending_reschedule_time;
+
+    if (orderRow.pending_reschedule_session_id === session_id) {
+      await runAsync(
+        `UPDATE orders SET
+          ksu_delivery_day = ?,
+          ksu_delivery_time = ?,
+          missed_delivery_count = missed_delivery_count + 1,
+          pending_reschedule_day = NULL,
+          pending_reschedule_time = NULL,
+          pending_reschedule_session_id = NULL,
+          updated_at = ?
+        WHERE id = ?`,
+        [newDay, newTime, new Date().toISOString(), orderId]
+      );
+
+      const updatedOrder = parseOrderRow({ ...orderRow, ksu_delivery_day: newDay, ksu_delivery_time: newTime });
+      sendRescheduleConfirmationEmail(updatedOrder, newDay, newTime).catch(err => console.error('Reschedule email failed:', err));
+    }
+
+    res.json({
+      success: true,
+      orderNumber: orderRow.order_number,
+      newDeliveryDay: newDay,
+      newDeliveryTime: newTime
+    });
+  } catch (err) {
+    console.error('Missed delivery confirm error:', err);
+    res.status(500).json({ error: 'Unable to confirm the reschedule.' });
   }
 });
 
@@ -1260,6 +1910,67 @@ app.post('/orders/:id/ship', requireAdmin, async (req, res) => {
   }
 });
 
+app.patch('/orders/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const orderId = Number(req.params.id);
+    const { status } = req.body;
+
+    if (!ADVANCEABLE_ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Status must be one of: ${ADVANCEABLE_ORDER_STATUSES.join(', ')}.` });
+    }
+
+    const orderRow = await getAsync('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!orderRow) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    const order = parseOrderRow(orderRow);
+    const now = new Date().toISOString();
+
+    if (status === 'making') {
+      await sendProductionStartedEmail(order);
+    } else if (status === 'delivered') {
+      await sendDeliveryConfirmationEmail(order);
+    }
+
+    if (status === 'delivered') {
+      await runAsync(
+        'UPDATE orders SET status = ?, delivered_at = ?, updated_at = ? WHERE id = ?',
+        [status, now, now, orderId]
+      );
+    } else {
+      await runAsync(
+        'UPDATE orders SET status = ?, updated_at = ? WHERE id = ?',
+        [status, now, orderId]
+      );
+    }
+
+    const updatedOrder = await getAsync('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (status === 'delivered') {
+      await customerFeatures.scheduleReviewRequest(updatedOrder);
+    }
+    res.json(parseOrderRow(updatedOrder));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Unable to update order status.' });
+  }
+});
+
+customerFeatures = registerCustomerFeatureRoutes({
+  app,
+  runAsync,
+  getAsync,
+  allAsync,
+  transactionAsync,
+  jwt,
+  jwtSecret: () => JWT_SECRET,
+  requireAdmin,
+  resend,
+  stripe,
+  uploadDirectory,
+  siteUrl: (process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '')
+});
+
 app.use((req, res, next) => {
   if (req.path.endsWith('.html')) {
     const clean = req.path.slice(0, -5) || '/';
@@ -1281,9 +1992,19 @@ async function startServer() {
       console.log('Generated new JWT secret and saved to database.');
     }
 
+    await initializeCustomerFeatureSchema({ runAsync, allAsync, uploadDirectory });
+
     app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
       console.log(`Server running on port ${process.env.PORT || 3000}`);
     });
+    const processScheduledEmails = () => {
+      customerFeatures.processScheduledEmails().catch(err => {
+        console.error('Scheduled customer email processing failed:', err);
+      });
+    };
+    processScheduledEmails();
+    const scheduler = setInterval(processScheduledEmails, 15 * 60 * 1000);
+    scheduler.unref();
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);

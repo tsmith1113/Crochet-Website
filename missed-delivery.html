@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Missed Delivery - Stitched By Trae</title>
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+    <header>
+        <nav class="nav-bar">
+            <div class="nav-brand">
+                <span class="logo">🧶</span>
+                <h1>Stitched By Trae</h1>
+            </div>
+            <button id="nav-toggle" class="nav-toggle" aria-expanded="false" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <ul class="nav-links" id="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/#shop">Shop</a></li>
+                <li id="account-nav-link"><a href="/login">Login / Sign Up</a></li>
+                <li class="cart-nav-item"><a href="/checkout" class="cart-nav-link">🛒<span id="cart-badge" class="cart-badge"></span></a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="checkout-hero">
+            <h2>Missed Campus Delivery</h2>
+            <p>Missed your KSU Campus Delivery window? Enter your order info below to pay the late fee and pick a new day.</p>
+        </section>
+
+        <div class="order-lookup-wrapper">
+            <div class="order-lookup-card">
+                <p class="checkout-note" style="margin-top:0;">
+                    ⏰ There's a <strong>10-minute grace period</strong> for your scheduled delivery time. If you're more than 10 minutes late, a
+                    <strong>$10 late fee</strong> applies and you'll need to pick a new delivery day here — you'll be charged $10 again if you miss the new one too.
+                </p>
+
+                <div id="reschedule-success" style="display:none;"></div>
+
+                <form id="lookup-form">
+                    <div class="lookup-field">
+                        <label for="lookup-order-number">Order Number</label>
+                        <input type="text" id="lookup-order-number" placeholder="e.g. ORD-123456" required>
+                    </div>
+                    <div class="lookup-field">
+                        <label for="lookup-last-name">Last Name</label>
+                        <input type="text" id="lookup-last-name" placeholder="Last name used at checkout" required>
+                    </div>
+                    <button type="submit" class="button" style="width:100%; margin-top:0.5rem;">Find My Order</button>
+                    <p class="form-message" id="lookup-error" aria-live="polite"></p>
+                </form>
+            </div>
+
+            <div id="reschedule-result" class="lookup-result" style="display:none;">
+                <div class="lookup-result-card">
+                    <div class="lookup-result-header">
+                        <h2>Order <span id="result-order-number"></span></h2>
+                    </div>
+
+                    <div class="lookup-result-meta">
+                        <p><strong>Current Delivery Day:</strong> <span id="result-current-day"></span></p>
+                        <p><strong>Current Delivery Time:</strong> <span id="result-current-time"></span></p>
+                        <p id="result-missed-count-wrap" style="display:none;"><strong>Previous reschedules:</strong> <span id="result-missed-count"></span></p>
+                    </div>
+
+                    <form id="reschedule-form">
+                        <div class="checkout-field-grid">
+                            <select id="new-day-select" required>
+                                <option value="">New Delivery Day</option>
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
+                            </select>
+                            <select id="new-time-select" required>
+                                <option value="">New Delivery Time</option>
+                                <option value="12:00 PM">12:00 PM</option>
+                                <option value="12:30 PM">12:30 PM</option>
+                                <option value="1:00 PM">1:00 PM</option>
+                                <option value="1:30 PM">1:30 PM</option>
+                                <option value="2:00 PM">2:00 PM</option>
+                                <option value="2:30 PM">2:30 PM</option>
+                                <option value="3:00 PM">3:00 PM</option>
+                                <option value="3:30 PM">3:30 PM</option>
+                                <option value="4:00 PM">4:00 PM</option>
+                                <option value="4:30 PM">4:30 PM</option>
+                                <option value="5:00 PM">5:00 PM</option>
+                                <option value="5:30 PM">5:30 PM</option>
+                                <option value="6:00 PM">6:00 PM</option>
+                            </select>
+                        </div>
+                        <label class="remember-me" style="align-items:flex-start; margin-top:0.85rem;">
+                            <input type="checkbox" id="reschedule-policy-checkbox" required style="margin-top:0.2rem;">
+                            <span>I understand I missed my delivery window and a <strong>$10 late fee</strong> will be charged now. I also understand there's another 10-minute grace period for this new time, and missing it again will require another $10 fee.</span>
+                        </label>
+                        <button type="submit" class="button" style="width:100%; margin-top:1rem;" id="reschedule-submit-button">Pay $10 &amp; Reschedule</button>
+                        <p class="form-message" id="reschedule-error" aria-live="polite"></p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2026 Stitched By Trae. Handmade with ❤️</p>
+    </footer>
+
+    <script src="site.js"></script>
+    <script>
+        let currentOrder = null;
+
+        function showLoading(button, isLoading, label) {
+            if (!button) return;
+            button.disabled = isLoading;
+            button.textContent = isLoading ? 'Please wait…' : label;
+        }
+
+        document.getElementById('lookup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const orderNumber = document.getElementById('lookup-order-number').value.trim();
+            const lastName = document.getElementById('lookup-last-name').value.trim();
+            const errorEl = document.getElementById('lookup-error');
+            const resultEl = document.getElementById('reschedule-result');
+
+            errorEl.textContent = '';
+            resultEl.style.display = 'none';
+
+            try {
+                const res = await fetch(`/order-lookup?orderNumber=${encodeURIComponent(orderNumber)}&lastName=${encodeURIComponent(lastName)}`);
+                const data = await res.json();
+
+                if (!res.ok) {
+                    errorEl.textContent = data.error || 'Order not found.';
+                    return;
+                }
+
+                if (data.deliveryMethod !== 'ksu') {
+                    errorEl.textContent = 'This order was not set up for KSU Campus Delivery, so there is nothing to reschedule here.';
+                    return;
+                }
+
+                currentOrder = { orderNumber: data.orderNumber, lastName };
+
+                document.getElementById('result-order-number').textContent = '#' + data.orderNumber;
+                document.getElementById('result-current-day').textContent = data.ksuDeliveryDay || '—';
+                document.getElementById('result-current-time').textContent = data.ksuDeliveryTime || '—';
+
+                const missedWrap = document.getElementById('result-missed-count-wrap');
+                if (data.missedDeliveryCount > 0) {
+                    document.getElementById('result-missed-count').textContent = data.missedDeliveryCount;
+                    missedWrap.style.display = 'block';
+                } else {
+                    missedWrap.style.display = 'none';
+                }
+
+                resultEl.style.display = 'block';
+            } catch {
+                errorEl.textContent = 'Something went wrong. Please try again.';
+            }
+        });
+
+        document.getElementById('reschedule-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentOrder) return;
+
+            const errorEl = document.getElementById('reschedule-error');
+            const button = document.getElementById('reschedule-submit-button');
+            const newDeliveryDay = document.getElementById('new-day-select').value;
+            const newDeliveryTime = document.getElementById('new-time-select').value;
+            const policyAck = document.getElementById('reschedule-policy-checkbox').checked;
+
+            errorEl.textContent = '';
+
+            if (!policyAck) {
+                errorEl.textContent = 'Please acknowledge the late fee policy before continuing.';
+                return;
+            }
+
+            showLoading(button, true, 'Pay $10 & Reschedule');
+
+            try {
+                const res = await fetch('/missed-delivery/reschedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderNumber: currentOrder.orderNumber,
+                        lastName: currentOrder.lastName,
+                        newDeliveryDay,
+                        newDeliveryTime,
+                        policyAck
+                    })
+                });
+                const data = await res.json();
+
+                if (!res.ok || !data.url) {
+                    errorEl.textContent = data.error || 'Unable to start checkout.';
+                    showLoading(button, false, 'Pay $10 & Reschedule');
+                    return;
+                }
+
+                window.location.href = data.url;
+            } catch {
+                errorEl.textContent = 'Something went wrong. Please try again.';
+                showLoading(button, false, 'Pay $10 & Reschedule');
+            }
+        });
+
+        (async function checkForReturnFromStripe() {
+            const params = new URLSearchParams(window.location.search);
+            const sessionId = params.get('session_id');
+            const canceled = params.get('canceled');
+            const successEl = document.getElementById('reschedule-success');
+
+            if (canceled) {
+                successEl.style.display = 'block';
+                successEl.className = 'form-message';
+                successEl.style.color = '#b00020';
+                successEl.textContent = 'Checkout was canceled. You can try rescheduling again below.';
+                window.history.replaceState({}, document.title, window.location.pathname);
+                return;
+            }
+
+            if (!sessionId) return;
+
+            try {
+                const res = await fetch(`/missed-delivery/confirm?session_id=${encodeURIComponent(sessionId)}`);
+                const data = await res.json();
+
+                successEl.style.display = 'block';
+                if (!res.ok) {
+                    successEl.style.color = '#b00020';
+                    successEl.textContent = data.error || 'Unable to confirm your reschedule.';
+                } else {
+                    successEl.style.color = '#276335';
+                    successEl.textContent = `✅ Order #${data.orderNumber} rescheduled! New delivery: ${data.newDeliveryDay} at ${data.newDeliveryTime}. A confirmation email is on its way.`;
+                }
+            } catch {
+                successEl.style.display = 'block';
+                successEl.style.color = '#b00020';
+                successEl.textContent = 'Something went wrong confirming your reschedule. Please contact us.';
+            }
+
+            window.history.replaceState({}, document.title, window.location.pathname);
+        })();
+    </script>
+</body>
+</html>

@@ -12,10 +12,11 @@
     "express-rate-limit": "^8.5.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.0",
+    "multer": "^2.5.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "resend": "^6.12.4",
     "sqlite3": "^5.1.6",
-    "stripe": "^12.18.0"
+    "stripe": "^23.1.0"
   }
 }

@@ -50,6 +50,63 @@
         <button class="account-logout-btn" id="logout-btn">Log Out</button>
     </div>
 
+    <section class="account-feature-grid" aria-label="Account features">
+        <article class="account-feature-card" id="profile">
+            <h3>My Profile</h3>
+            <p>Your birthday must be saved before your birthday month begins. It can only be saved once.</p>
+            <label for="birthday-input">Birthday</label>
+            <div class="account-feature-actions">
+                <input type="date" id="birthday-input">
+                <button type="button" class="button" id="save-birthday-button">Save Birthday</button>
+            </div>
+            <p class="form-message" id="birthday-message" aria-live="polite"></p>
+        </article>
+
+        <article class="account-feature-card" id="rewards">
+            <h3>Trae Rewards</h3>
+            <p class="rewards-balance"><strong id="rewards-points">0</strong> points</p>
+            <p>Every $1 spent earns 10 points. Create an account for 50 points, your birthday earns 100, your first verified review earns 50, and a friend’s qualifying purchase earns 200. Redeem 500 points for $5 off. Points never expire.</p>
+            <button type="button" class="button" id="redeem-points-button">Redeem 500 points for $5 off</button>
+            <p class="form-message" id="rewards-message" aria-live="polite"></p>
+            <h4>Points History</h4>
+            <div id="rewards-history"></div>
+        </article>
+
+        <article class="account-feature-card" id="discounts">
+            <h3>Available Discounts</h3>
+            <p>Only one discount can be used per order.</p>
+            <div id="available-discounts"></div>
+            <h4>Refer a Friend</h4>
+            <p>They make a qualifying purchase, and you earn 200 points.</p>
+            <div class="account-feature-actions">
+                <input type="text" id="referral-link" readonly aria-label="Your referral link">
+                <button type="button" class="button secondary" id="copy-referral-button">Copy Link</button>
+            </div>
+            <p class="form-message" id="referral-message" aria-live="polite"></p>
+        </article>
+
+        <article class="account-feature-card" id="notifications">
+            <h3>Notifications</h3>
+            <label class="account-preference">
+                <input type="checkbox" id="review-email-preference">
+                <span>Send me review requests after my orders are delivered.</span>
+            </label>
+            <label class="account-preference">
+                <input type="checkbox" id="marketing-email-preference">
+                <span>Send me promotional emails, including birthday reward emails.</span>
+            </label>
+            <button type="button" class="button" id="save-email-preferences">Save Email Preferences</button>
+            <p class="form-message" id="preferences-message" aria-live="polite"></p>
+        </article>
+    </section>
+
+    <section class="account-orders" id="reviews">
+        <h3>My Reviews</h3>
+        <p>Verified reviews can be submitted after delivery. Reviews cannot be edited or deleted by customers.</p>
+        <div id="eligible-reviews"></div>
+        <div id="submitted-reviews"></div>
+    </section>
+
     <section class="account-orders">
         <h3>Order History</h3>
         <div id="order-history">
@@ -65,6 +122,41 @@
 
 <script src="site.js"></script>
 <script>
+// Mirrors ORDER_STATUS_STEPS in server.js.
+const ORDER_STATUS_STEPS = [
+    { key: 'confirmed', label: 'Order Confirmed', description: 'Payment received' },
+    { key: 'preparing', label: 'Preparing Your Order', description: 'Materials and details confirmed' },
+    { key: 'making', label: 'Making Your Hat', description: 'Your handmade item is being crocheted' },
+    { key: 'ready', label: 'Ready to Ship', description: 'Order packaged and ready' },
+    { key: 'shipped', label: 'Shipped', description: 'Your package is on the way' },
+    { key: 'delivered', label: 'Delivered', description: 'Your order has arrived' }
+];
+
+function renderOrderTracker(status) {
+    const currentIndex = ORDER_STATUS_STEPS.findIndex(step => step.key === status);
+    const stepsHtml = ORDER_STATUS_STEPS.map((step, index) => {
+        let stateClass = '';
+        let bullet = String(index + 1);
+        if (currentIndex !== -1 && index < currentIndex) {
+            stateClass = 'completed';
+            bullet = '✓';
+        } else if (index === currentIndex) {
+            stateClass = 'active';
+        }
+        return `
+            <div class="order-tracker-step ${stateClass}">
+                <div class="order-tracker-connector"></div>
+                <div class="order-tracker-bullet">${bullet}</div>
+                <div class="order-tracker-text">
+                    <p class="order-tracker-label">${step.label}</p>
+                    <p class="order-tracker-description">${step.description}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+    return `<div class="order-tracker">${stepsHtml}</div>`;
+}
+
 function getItemColorLabels(product, bucketHatStyle, rowCount) {
     if (product === 'Ruffle Bucket Hat') {
         return bucketHatStyle === 'main-rest'
@@ -117,12 +209,7 @@ async function loadUser() {
         const date = new Date(order.created_at).toLocaleDateString('en-US', {
             year: 'numeric', month: 'long', day: 'numeric'
         });
-        const statusMap = {
-            confirmed: { label: 'Confirmed', cls: 'status-confirmed' },
-            shipped:   { label: 'Shipped',   cls: 'status-shipped'   },
-            payment_pending: { label: 'Payment Pending', cls: 'status-pending' },
-        };
-        const { label, cls } = statusMap[order.status] || { label: order.status, cls: '' };
+        const isPaymentPending = order.status === 'payment_pending';
 
         const itemsHtml = items.map(item => {
             const colorLabels = getItemColorLabels(item.product, item.bucketHatStyle, item.rowCount);
@@ -147,8 +234,9 @@ async function loadUser() {
                         <p class="account-order-number">${order.order_number}</p>
                         <p class="account-order-date">${date}</p>
                     </div>
-                    <span class="order-status-badge ${cls}">${label}</span>
+                    ${isPaymentPending ? `<span class="order-status-badge status-pending">Payment Pending</span>` : ''}
                 </div>
+                ${isPaymentPending ? '' : renderOrderTracker(order.status)}
                 <div class="account-order-items">${itemsHtml}</div>
                 ${order.tracking_number ? `
                     <div class="account-tracking">
@@ -171,6 +259,7 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 
 loadUser();
 </script>
+<script src="account-features.js"></script>
 
 </body>
 </html>

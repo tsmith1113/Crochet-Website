@@ -29,10 +29,7 @@
     }
     .admin-status {
       font-weight: 600;
-    }
-    .ship-button[disabled] {
-      opacity: 0.6;
-      cursor: not-allowed;
+      color: var(--accent, #5a3e6b);
     }
   </style>
 </head>
@@ -76,13 +73,87 @@
                 <th>Items </th>
                 <th>Total</th>
                 <th>Delivery</th>
-                <th>Status</th>
+                <th>Order Progress</th>
                 <th>Tracking Number</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody id="orders-table-body"></tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="checkout-layout" style="padding-bottom: 2rem;">
+      <div class="checkout-form">
+        <div class="checkout-block">
+          <h2>Promotions & Coupon Codes</h2>
+          <p class="checkout-intro">Create one-time Stripe discounts. Checkout permits only one offer per order.</p>
+          <form id="promotion-form" class="admin-controls">
+            <input type="text" name="code" placeholder="Coupon code" maxlength="30" pattern="[A-Za-z0-9-]{3,30}" required>
+            <select name="kind" required>
+              <option value="amount">Fixed amount off</option>
+              <option value="percent">Percent off</option>
+            </select>
+            <input type="number" name="value" placeholder="Discount value" min="0.01" step="0.01" required>
+            <input type="number" name="maxRedemptions" placeholder="Redemption limit (optional)" min="1" max="10000" step="1">
+            <button type="submit" class="button">Create Promotion</button>
+          </form>
+          <div class="form-message" id="promotion-admin-message" aria-live="polite"></div>
+          <div id="admin-promotions-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="checkout-layout" style="padding-bottom: 2rem;">
+      <div class="checkout-form">
+        <div class="checkout-block">
+          <h2>Trae Rewards & Referrals</h2>
+          <p class="checkout-intro">Review points activity, discount redemptions, birthday rewards, and qualifying referral purchases.</p>
+          <div class="form-message" id="rewards-admin-message" aria-live="polite"></div>
+          <div id="admin-rewards-customers"></div>
+          <h3>Recent Points Activity</h3>
+          <div id="admin-rewards-activity"></div>
+          <h3>Referral History</h3>
+          <div id="admin-referral-history"></div>
+          <h3>Reward Redemptions</h3>
+          <div id="admin-reward-discounts"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="checkout-layout" style="padding-bottom: 2rem;">
+      <div class="checkout-form">
+        <div class="checkout-block">
+          <h2>Customer Reviews</h2>
+          <p class="checkout-intro">Four- and five-star reviews publish automatically. Lower ratings and privacy-related removal requests need moderation.</p>
+          <div class="form-message" id="review-admin-message" aria-live="polite"></div>
+          <div id="admin-reviews-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="checkout-layout" style="padding-bottom: 2rem;">
+      <div class="checkout-form">
+        <div class="checkout-block">
+          <h2>Ready-to-Ship Hat Inventory</h2>
+          <p class="checkout-intro">Only active, in-stock hats listed here can qualify for birthday BOGO. Custom-made products are never included.</p>
+          <form id="inventory-form" class="admin-controls">
+            <input type="text" name="itemCode" placeholder="Item code" pattern="[A-Za-z0-9_-]{2,40}" required>
+            <input type="text" name="name" placeholder="Display name" maxlength="100" required>
+            <select name="productName" required>
+              <option value="">Hat type</option>
+              <option value="Beanie">Beanie</option>
+              <option value="Bucket Hat">Bucket Hat</option>
+              <option value="Ruffle Bucket Hat">Ruffle Bucket Hat</option>
+            </select>
+            <input type="text" name="details" placeholder="Details / color" maxlength="500">
+            <input type="number" name="price" placeholder="Price ($)" min="0.01" step="0.01" required>
+            <input type="number" name="quantity" placeholder="Quantity" min="0" max="500" step="1" required>
+            <button type="submit" class="button">Save Inventory Item</button>
+          </form>
+          <div class="form-message" id="inventory-admin-message" aria-live="polite"></div>
+          <div id="admin-inventory-list"></div>
         </div>
       </div>
     </section>
@@ -93,5 +164,6 @@
   </footer>
 
   <script src="admin.js"></script>
+  <script src="admin-features.js"></script>
 </body>
 </html>

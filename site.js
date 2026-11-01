@@ -106,10 +106,11 @@ const shippingSpeedBlock = document.getElementById('shipping-speed-block');
 const ksuDeliveryBlock = document.getElementById('ksu-delivery-block');
 const ksuCampusSelect = document.getElementById('ksu-campus-select');
 const ksuMeetupSelect = document.getElementById('ksu-meetup-select');
-const ksuMeetupOtherInput = document.getElementById('ksu-meetup-other');
 const ksuDaySelect = document.getElementById('ksu-day-select');
+const ksuTimeSelect = document.getElementById('ksu-time-select');
 const ksuPhoneInput = document.getElementById('ksu-phone-input');
 const ksuIdInput = document.getElementById('ksu-id-input');
+const ksuPolicyCheckbox = document.getElementById('ksu-policy-checkbox');
 const stripeCheckoutButton = document.getElementById('stripe-checkout-button');
 const stripeStatusMessage = document.getElementById('stripe-status-message');
 const summaryProduct = document.getElementById('summary-product');
@@ -127,7 +128,11 @@ const summaryDiscountEl = document.getElementById('summary-discount');
 const summaryDiscountLabel = document.getElementById('summary-discount-label');
 const promoCodeInput = document.getElementById('promo-code-input');
 const applyPromoButton = document.getElementById('apply-promo-button');
+const removePromoButton = document.getElementById('remove-promo-button');
 const promoMessage = document.getElementById('promo-message');
+const readyToShipItems = document.getElementById('ready-to-ship-items');
+const inventoryMessage = document.getElementById('inventory-message');
+const referralCodeInput = document.getElementById('referral-code-input');
 
 let appliedPromo = null;
 const checkoutItemList = document.getElementById('checkout-item-list');
@@ -605,6 +610,30 @@ function saveOrderItems(items) {
   updateCartBadge();
 }
 
+function escapeCheckoutHtml(value) {
+  const element = document.createElement('span');
+  element.textContent = value == null ? '' : String(value);
+  return element.innerHTML;
+}
+
+function addReadyToShipInventoryItem(item) {
+  const items = loadOrderItems();
+  items.push({
+    product: item.product_name,
+    inventoryId: item.id,
+    isReadyToShip: true,
+    inventoryName: item.name,
+    inventoryDetails: item.details,
+    price: item.price,
+    colors: [],
+    allOneColor: false,
+    rowCount: 1
+  });
+  saveOrderItems(items);
+  renderCartList();
+  updateCheckoutSummary();
+}
+
 function saveBillingDetails() {
   if (!checkoutForm || !rememberDetailsCheckbox) return;
   const data = {};
@@ -629,24 +658,30 @@ function isKsuDelivery() {
 }
 
 function getKsuMeetupLocation() {
-  if (!ksuMeetupSelect) return '';
-  if (ksuMeetupSelect.value === 'Other') {
-    return ksuMeetupOtherInput ? ksuMeetupOtherInput.value.trim() : '';
-  }
-  return ksuMeetupSelect.value;
+  return ksuMeetupSelect ? ksuMeetupSelect.value : '';
 }
 
 function isValidKsuId(value) {
   return /^00\d{7}$/.test((value || '').trim());
 }
 
+function isValidKsuDeliveryTime(value) {
+  const match = /^(\d{1,2}):(\d{2}) (AM|PM)$/.exec((value || '').trim());
+  if (!match) return false;
+  let hour = Number(match[1]) % 12;
+  if (match[3] === 'PM') hour += 12;
+  const minutes = Number(match[2]);
+  return hour < 18 || (hour === 18 && minutes === 0);
+}
+
 function resetKsuFields() {
   if (ksuCampusSelect) ksuCampusSelect.value = '';
   if (ksuMeetupSelect) ksuMeetupSelect.value = '';
-  if (ksuMeetupOtherInput) ksuMeetupOtherInput.value = '';
   if (ksuDaySelect) ksuDaySelect.value = '';
+  if (ksuTimeSelect) ksuTimeSelect.value = '';
   if (ksuPhoneInput) ksuPhoneInput.value = '';
   if (ksuIdInput) ksuIdInput.value = '';
+  if (ksuPolicyCheckbox) ksuPolicyCheckbox.checked = false;
 }
 
 function getDeliveryCost() {
@@ -670,7 +705,9 @@ function buildCheckoutPayload(form) {
   const loadedItems = loadOrderItems();
   const items = loadedItems.map(item => ({
     ...item,
-    price: getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle)
+    price: item.isReadyToShip
+      ? Number(item.price || 0)
+      : getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle)
   }));
   const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0), 0);
   const shippingCost = getDeliveryCost();
@@ -688,8 +725,10 @@ function buildCheckoutPayload(form) {
     ksuCampus: isKsu && ksuCampusSelect ? ksuCampusSelect.value : '',
     ksuMeetupLocation: isKsu ? getKsuMeetupLocation() : '',
     ksuDeliveryDay: isKsu && ksuDaySelect ? ksuDaySelect.value : '',
+    ksuDeliveryTime: isKsu && ksuTimeSelect ? ksuTimeSelect.value : '',
     ksuPhone: isKsu && ksuPhoneInput ? ksuPhoneInput.value.trim() : '',
     ksuId: isKsu && ksuIdInput ? ksuIdInput.value.trim() : '',
+    referralCode: referralCodeInput ? referralCodeInput.value.trim() : '',
     total: subtotal + shippingCost,
     items,
   };
@@ -735,36 +774,16 @@ async function handleStripeCheckout() {
     return;
   }
 
-  const lineItems = getStripeLineItems();
-  if (payload.shippingCost > 0) {
-    const shippingLabel = payload.deliveryMethod === 'ksu'
-      ? 'KSU Campus Delivery'
-      : (payload.shipping === 'express' ? 'Express Shipping (2–3 days)' : 'Standard Shipping (5–7 days)');
-    lineItems.push({
-      price_data: {
-        currency: 'usd',
-        product_data: { name: shippingLabel },
-        unit_amount: Math.round(payload.shippingCost * 100)
-      },
-      quantity: 1
-    });
+  if (payload.deliveryMethod === 'ksu' && !isValidKsuDeliveryTime(payload.ksuDeliveryTime)) {
+    showStripeStatus('Please choose a preferred delivery time (no later than 6:00 PM) before checking out.');
+    if (ksuTimeSelect) ksuTimeSelect.focus();
+    return;
   }
 
-  const extraColorCount = payload.items.filter(item =>
-    item.product === 'Ruffle Bucket Hat' &&
-    item.colors?.length === 3 &&
-    item.bucketHatStyle === 'main-outer-top' &&
-    !item.allOneColor
-  ).length;
-  if (extraColorCount > 0) {
-    lineItems.push({
-      price_data: {
-        currency: 'usd',
-        product_data: { name: 'Extra Color Surcharge' },
-        unit_amount: 200
-      },
-      quantity: extraColorCount
-    });
+  if (payload.deliveryMethod === 'ksu' && (!ksuPolicyCheckbox || !ksuPolicyCheckbox.checked)) {
+    showStripeStatus('Please acknowledge the campus delivery late fee policy before checking out.');
+    if (ksuPolicyCheckbox) ksuPolicyCheckbox.focus();
+    return;
   }
 
   const response = await fetch('/create-checkout-session', {
@@ -774,8 +793,8 @@ async function handleStripeCheckout() {
     },
     body: JSON.stringify({
       ...payload,
-      lineItems,
-      promotionCodeId: appliedPromo ? appliedPromo.promotionCodeId : null
+      promotionCodeId: appliedPromo?.promotionCodeId || null,
+      discountCode: appliedPromo?.discountCode || null
     })
   });
 
@@ -858,6 +877,20 @@ function getProductPrice(product, colorCount, allOneColor = false, bucketHatStyl
   return base + thirdColorSurcharge;
 }
 
+function getCartItemPrice(item) {
+  return item.isReadyToShip
+    ? Number(item.price || 0)
+    : getProductPrice(item.product, item.colors?.length || 0, item.allOneColor, item.bucketHatStyle);
+}
+
+function getAppliedDiscountAmount(total) {
+  if (!appliedPromo) return 0;
+  if (appliedPromo.percentOff != null && Number.isFinite(Number(appliedPromo.percentOff))) {
+    return Math.round(total * Number(appliedPromo.percentOff)) / 100;
+  }
+  return Number(appliedPromo.discount || 0);
+}
+
 function getMeasurementText(order) {
   if (!order) return '';
   if (order.headCircumference) {
@@ -885,6 +918,9 @@ function getItemColorLabels(product, bucketHatStyle, rowCount) {
 
 function getOrderMetaText(order) {
   if (!order) return '';
+  if (order.isReadyToShip) {
+    return [order.inventoryName, order.inventoryDetails, 'Ready to ship'].filter(Boolean).join(' · ');
+  }
   const labels = getItemColorLabels(order.product, order.bucketHatStyle, order.rowCount);
   const colorText = order.allOneColor && order.colors.length
     ? `All one color: ${order.colors[0]}`
@@ -911,18 +947,10 @@ function setKsuFieldsRequired(required) {
   if (ksuCampusSelect) ksuCampusSelect.required = required;
   if (ksuMeetupSelect) ksuMeetupSelect.required = required;
   if (ksuDaySelect) ksuDaySelect.required = required;
+  if (ksuTimeSelect) ksuTimeSelect.required = required;
   if (ksuPhoneInput) ksuPhoneInput.required = required;
   if (ksuIdInput) ksuIdInput.required = required;
-  if (ksuMeetupOtherInput) {
-    ksuMeetupOtherInput.required = required && ksuMeetupSelect && ksuMeetupSelect.value === 'Other';
-  }
-}
-
-function updateKsuMeetupOtherVisibility() {
-  if (!ksuMeetupSelect || !ksuMeetupOtherInput) return;
-  const showOther = isKsuDelivery() && ksuMeetupSelect.value === 'Other';
-  ksuMeetupOtherInput.style.display = showOther ? '' : 'none';
-  ksuMeetupOtherInput.required = showOther;
+  if (ksuPolicyCheckbox) ksuPolicyCheckbox.required = required;
 }
 
 function updateAddressRequirement() {
@@ -976,7 +1004,6 @@ function updateDeliveryMethodVisibility() {
   const isKsu = isKsuDelivery();
   if (ksuDeliveryBlock) ksuDeliveryBlock.style.display = isKsu ? 'grid' : 'none';
   setKsuFieldsRequired(isKsu);
-  updateKsuMeetupOtherVisibility();
   updateAddressRequirement();
 
   if (isKsu) {
@@ -1051,12 +1078,12 @@ function renderCartList() {
   orderCartMessage.textContent = `You have ${items.length} item${items.length === 1 ? '' : 's'} in your order.`;
   orderCartList.innerHTML = items.map((item, index) => {
     const itemMeta = getOrderMetaText(item);
-    const itemPrice = getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
+    const itemPrice = getCartItemPrice(item);
     return `
       <div class="cart-list-item">
         <div>
-          <strong>${index + 1}. ${item.product}</strong>
-          <p>${itemMeta}</p>
+          <strong>${index + 1}. ${escapeCheckoutHtml(item.product)}</strong>
+          <p>${escapeCheckoutHtml(itemMeta)}</p>
         </div>
         <div class="cart-list-actions">
           <span>$${itemPrice}</span>
@@ -1099,10 +1126,10 @@ function updateCheckoutSummary() {
 
   const shippingCost = getDeliveryCost();
   const subtotal = items.reduce((sum, item) => {
-    return sum + getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
+    return sum + getCartItemPrice(item);
   }, 0);
   const extraFee = items.reduce((sum, item) => {
-    return sum + (item.product === 'Ruffle Bucket Hat' && item.colors.length === 3 && item.bucketHatStyle === 'main-outer-top' && !item.allOneColor ? 2 : 0);
+    return sum + (!item.isReadyToShip && item.product === 'Ruffle Bucket Hat' && item.colors.length === 3 && item.bucketHatStyle === 'main-outer-top' && !item.allOneColor ? 2 : 0);
   }, 0);
   const total = subtotal + shippingCost;
 
@@ -1122,12 +1149,12 @@ function updateCheckoutSummary() {
     checkoutItemList.style.display = 'grid';
     checkoutItemList.innerHTML = items.map((order, index) => {
       const itemMeta = getOrderMetaText(order);
-      const price = getProductPrice(order.product, order.colors.length, order.allOneColor, order.bucketHatStyle);
+      const price = getCartItemPrice(order);
       return `
         <div class="checkout-item-row">
           <div>
-            <p class="item-title">${index + 1}. ${order.product}</p>
-            <p class="item-meta">${itemMeta}</p>
+            <p class="item-title">${index + 1}. ${escapeCheckoutHtml(order.product)}</p>
+            <p class="item-meta">${escapeCheckoutHtml(itemMeta)}</p>
           </div>
           <div class="cart-list-actions">
             <strong>$${price}</strong>
@@ -1154,10 +1181,12 @@ function updateCheckoutSummary() {
       const campus = ksuCampusSelect ? ksuCampusSelect.value : '';
       const meetup = getKsuMeetupLocation();
       const day = ksuDaySelect ? ksuDaySelect.value : '';
+      const time = ksuTimeSelect ? ksuTimeSelect.value : '';
       const details = [
         campus ? `Campus: ${campus}` : '',
         meetup ? `Meetup: ${meetup}` : '',
-        day ? `Day: ${day}` : ''
+        day ? `Day: ${day}` : '',
+        time ? `Time: ${time}` : ''
       ].filter(Boolean).join(' • ');
       summaryKsuDetailsLine.style.display = details ? 'flex' : 'none';
       summaryKsuDetails.textContent = details;
@@ -1165,8 +1194,13 @@ function updateCheckoutSummary() {
       summaryKsuDetailsLine.style.display = 'none';
     }
   }
-  const discount = appliedPromo ? appliedPromo.discount : 0;
+  const discount = getAppliedDiscountAmount(total);
   const discountedTotal = Math.max(0, total - discount);
+  if (appliedPromo && summaryDiscountEl) {
+    summaryDiscountEl.textContent = appliedPromo.percentOff != null && Number.isFinite(Number(appliedPromo.percentOff))
+      ? `-${Number(appliedPromo.percentOff)}%`
+      : `-$${discount.toFixed(2)}`;
+  }
   summaryTotal.textContent = `$${discountedTotal.toFixed(2)}`;
 }
 
@@ -1177,17 +1211,17 @@ function buildReceiptPreview(form) {
   const items = loadOrderItems();
   const shippingCost = getDeliveryCost();
   const subtotal = items.reduce((sum, item) => {
-    return sum + getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
+    return sum + getCartItemPrice(item);
   }, 0);
   const total = subtotal + shippingCost;
   const lines = items.map((item, index) => {
     const meta = getOrderMetaText(item);
-    const price = getProductPrice(item.product, item.colors.length, item.allOneColor, item.bucketHatStyle);
+    const price = getCartItemPrice(item);
     return `${index + 1}. ${item.product} (${meta}) — $${price}`;
   });
   const deliveryLabel = isKsuDelivery() ? 'KSU Campus Delivery' : 'Shipping';
   const ksuDetails = isKsuDelivery()
-    ? `\nCampus: ${ksuCampusSelect ? ksuCampusSelect.value : ''}\nMeetup Location: ${getKsuMeetupLocation()}\nPreferred Delivery Day: ${ksuDaySelect ? ksuDaySelect.value : ''}\nPhone: ${ksuPhoneInput ? ksuPhoneInput.value.trim() : ''}\nKSU ID: ${ksuIdInput ? ksuIdInput.value.trim() : ''}`
+    ? `\nCampus: ${ksuCampusSelect ? ksuCampusSelect.value : ''}\nMeetup Location: ${getKsuMeetupLocation()}\nPreferred Delivery Day: ${ksuDaySelect ? ksuDaySelect.value : ''}\nPreferred Delivery Time: ${ksuTimeSelect ? ksuTimeSelect.value : ''}\nPhone: ${ksuPhoneInput ? ksuPhoneInput.value.trim() : ''}\nKSU ID: ${ksuIdInput ? ksuIdInput.value.trim() : ''}`
     : '';
   return `Receipt will be sent to ${email || 'your email address'}.
 
@@ -1237,6 +1271,18 @@ async function handleFormSubmit(event) {
   if (payload.deliveryMethod === 'ksu' && !isValidKsuId(payload.ksuId)) {
     if (checkoutMessage) checkoutMessage.textContent = 'Please enter a valid 9-digit KSU ID number (starts with 00 or 000) before submitting.';
     if (ksuIdInput) ksuIdInput.focus();
+    return;
+  }
+
+  if (payload.deliveryMethod === 'ksu' && !isValidKsuDeliveryTime(payload.ksuDeliveryTime)) {
+    if (checkoutMessage) checkoutMessage.textContent = 'Please choose a preferred delivery time (no later than 6:00 PM) before submitting.';
+    if (ksuTimeSelect) ksuTimeSelect.focus();
+    return;
+  }
+
+  if (payload.deliveryMethod === 'ksu' && (!ksuPolicyCheckbox || !ksuPolicyCheckbox.checked)) {
+    if (checkoutMessage) checkoutMessage.textContent = 'Please acknowledge the campus delivery late fee policy before submitting.';
+    if (ksuPolicyCheckbox) ksuPolicyCheckbox.focus();
     return;
   }
 
@@ -1416,32 +1462,108 @@ if (applyPromoButton && promoCodeInput) {
   applyPromoButton.addEventListener('click', async () => {
     const code = promoCodeInput.value.trim();
     if (!code) return;
+    if (appliedPromo) {
+      promoMessage.style.color = '#b00020';
+      promoMessage.textContent = 'Only one discount can be used per order. Remove your current discount before applying another offer.';
+      return;
+    }
     promoMessage.style.color = '#666';
     promoMessage.textContent = 'Validating...';
     applyPromoButton.disabled = true;
     try {
-      const res = await fetch(`/validate-promo?code=${encodeURIComponent(code)}`);
-      const data = await res.json();
-      if (!res.ok || !data.valid) {
-        promoMessage.style.color = '#b00020';
-        promoMessage.textContent = data.error || 'Invalid promo code.';
-        appliedPromo = null;
-        if (summaryDiscountLine) summaryDiscountLine.style.display = 'none';
+      const rewardResponse = await fetch('/api/customer/discounts/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      const rewardData = await rewardResponse.json();
+      let data;
+      if (rewardResponse.ok && rewardData.valid) {
+        data = {
+          ...rewardData,
+          discountCode: rewardData.code,
+          label: rewardData.kind === 'birthday_bogo' ? 'Birthday BOGO' : 'Trae Rewards'
+        };
       } else {
-        appliedPromo = data;
-        promoMessage.style.color = '#276335';
-        promoMessage.textContent = `Code applied! -$${data.discount.toFixed(2)} off`;
-        if (summaryDiscountLine) summaryDiscountLine.style.display = 'flex';
-        if (summaryDiscountLabel) summaryDiscountLabel.textContent = data.label || code;
-        if (summaryDiscountEl) summaryDiscountEl.textContent = `-$${data.discount.toFixed(2)}`;
-        updateCheckoutSummary();
+        const promoResponse = await fetch(`/validate-promo?code=${encodeURIComponent(code)}`);
+        data = await promoResponse.json();
+        if (!promoResponse.ok || !data.valid) throw new Error(data.error || rewardData.error || 'Invalid promo code.');
       }
-    } catch {
+
+      appliedPromo = data;
+      promoMessage.style.color = '#276335';
+      const discountLabel = data.percentOff != null && Number.isFinite(Number(data.percentOff))
+        ? `${Number(data.percentOff)}% off`
+        : `-$${Number(data.discount || 0).toFixed(2)}`;
+      promoMessage.textContent = `Code applied: ${data.label || code} · ${discountLabel}`;
+      if (removePromoButton) removePromoButton.style.display = '';
+      if (summaryDiscountLine) summaryDiscountLine.style.display = 'flex';
+      if (summaryDiscountLabel) summaryDiscountLabel.textContent = data.label || code;
+      if (summaryDiscountEl) summaryDiscountEl.textContent = discountLabel.startsWith('-$') ? discountLabel : `-${Number(data.percentOff)}%`;
+      updateCheckoutSummary();
+    } catch (error) {
       promoMessage.style.color = '#b00020';
-      promoMessage.textContent = 'Unable to validate code. Try again.';
+      promoMessage.textContent = error.message || 'Unable to validate code. Try again.';
     }
     applyPromoButton.disabled = false;
   });
+}
+
+if (removePromoButton) {
+  removePromoButton.addEventListener('click', () => {
+    appliedPromo = null;
+    if (promoCodeInput) promoCodeInput.value = '';
+    removePromoButton.style.display = 'none';
+    if (summaryDiscountLine) summaryDiscountLine.style.display = 'none';
+    if (promoMessage) promoMessage.textContent = '';
+    updateCheckoutSummary();
+  });
+}
+
+if (readyToShipItems) {
+  readyToShipItems.addEventListener('click', event => {
+    const button = event.target.closest('[data-ready-item]');
+    if (!button) return;
+    const item = readyInventory.find(value => value.id === Number(button.dataset.readyItem));
+    if (item) addReadyToShipInventoryItem(item);
+  });
+}
+
+let readyInventory = [];
+async function loadReadyToShipItems() {
+  try {
+    const response = await fetch('/api/inventory/ready-to-ship');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Unable to load ready-to-ship items.');
+    readyInventory = data;
+    readyToShipItems.innerHTML = data.length ? data.map(item => `
+      <article class="checkout-item-row">
+        <div>
+          <p class="item-title">${escapeCheckoutHtml(item.name)}</p>
+          <p class="item-meta">${escapeCheckoutHtml(item.product_name)} · ${escapeCheckoutHtml(item.details)} · ${Number(item.quantity)} in stock</p>
+          <strong>$${Number(item.price).toFixed(2)}</strong>
+        </div>
+        <button type="button" class="button" data-ready-item="${Number(item.id)}">Add to Order</button>
+      </article>
+    `).join('') : '<p>No ready-to-ship hats are currently available.</p>';
+  } catch (error) {
+    if (inventoryMessage) {
+      inventoryMessage.textContent = error.message;
+      inventoryMessage.style.color = '#b00020';
+    }
+  }
+}
+
+if (referralCodeInput) {
+  const referralCode = new URLSearchParams(window.location.search).get('ref');
+  if (referralCode && /^[A-Za-z0-9-]{2,40}$/.test(referralCode)) {
+    referralCodeInput.value = referralCode;
+    referralCodeInput.readOnly = true;
+  }
+}
+
+if (readyToShipItems) {
+  loadReadyToShipItems();
 }
 
 if (stripeCheckoutButton) {
@@ -1482,14 +1604,7 @@ if (deliveryMethodSelect) {
   });
 }
 
-if (ksuMeetupSelect) {
-  ksuMeetupSelect.addEventListener('change', () => {
-    updateKsuMeetupOtherVisibility();
-    updateCheckoutSummary();
-  });
-}
-
-[ksuCampusSelect, ksuDaySelect, ksuPhoneInput, ksuIdInput, ksuMeetupOtherInput].forEach(field => {
+[ksuCampusSelect, ksuMeetupSelect, ksuDaySelect, ksuTimeSelect, ksuPhoneInput, ksuIdInput, ksuPolicyCheckbox].forEach(field => {
   if (field) field.addEventListener('change', updateCheckoutSummary);
 });
 

@@ -191,9 +191,7 @@
                                 <option value="Student Center">Student Center</option>
                                 <option value="The Commons">The Commons</option>
                                 <option value="Library">Library</option>
-                                <option value="Other">Other (specify below)</option>
                             </select>
-                            <input type="text" id="ksu-meetup-other" name="ksuMeetupOther" placeholder="Meetup location details" class="field-full-width" style="display:none;">
                             <select id="ksu-day-select" name="ksuDeliveryDay">
                                 <option value="">Preferred Delivery Day</option>
                                 <option value="Monday">Monday</option>
@@ -202,21 +200,56 @@
                                 <option value="Thursday">Thursday</option>
                                 <option value="Friday">Friday</option>
                             </select>
+                            <select id="ksu-time-select" name="ksuDeliveryTime">
+                                <option value="">Preferred Delivery Time</option>
+                                <option value="12:00 PM">12:00 PM</option>
+                                <option value="12:30 PM">12:30 PM</option>
+                                <option value="1:00 PM">1:00 PM</option>
+                                <option value="1:30 PM">1:30 PM</option>
+                                <option value="2:00 PM">2:00 PM</option>
+                                <option value="2:30 PM">2:30 PM</option>
+                                <option value="3:00 PM">3:00 PM</option>
+                                <option value="3:30 PM">3:30 PM</option>
+                                <option value="4:00 PM">4:00 PM</option>
+                                <option value="4:30 PM">4:30 PM</option>
+                                <option value="5:00 PM">5:00 PM</option>
+                                <option value="5:30 PM">5:30 PM</option>
+                                <option value="6:00 PM">6:00 PM</option>
+                            </select>
                             <input type="tel" id="ksu-phone-input" name="ksuPhone" placeholder="Phone Number" autocomplete="tel">
                             <input type="text" id="ksu-id-input" name="ksuId" placeholder="KSU ID Number (9 digits)" inputmode="numeric" maxlength="9" pattern="00\d{7}" title="9 digits, starting with 00 or 000" class="field-full-width">
                             <p class="checkout-note field-full-width">🎓 Your 9-digit KSU ID number (starts with 00 or 000) helps us verify you at pickup. Required for campus delivery.</p>
-                            <p class="checkout-note field-full-width">📍 We won't ask for a dorm room or building room number. Once your order is ready, we'll text or email you to confirm the exact meetup time at your chosen location.</p>
+                            <p class="checkout-note field-full-width">📍 We won't ask for a dorm room or building room number. Once your order is ready, we'll text or email you to confirm the exact meetup time at your chosen location. Deliveries run no later than 6:00 PM.</p>
+                            <label class="remember-me field-full-width" style="align-items:flex-start;">
+                                <input type="checkbox" id="ksu-policy-checkbox" name="ksuPolicyAck" style="margin-top:0.2rem;">
+                                <span>I understand there's a <strong>10-minute grace period</strong> for my chosen delivery time. If I'm more than 10 minutes late to meet my delivery, a <strong>$10 late fee</strong> will be charged and I'll need to visit <a href="/missed-delivery" target="_blank" rel="noopener">stitchedbytrae.com/missed-delivery</a> to pick a new delivery day (and will be charged again if I miss it a second time).</span>
+                            </label>
                         </div>
                     </div>
 
                     <div class="checkout-block">
+                        <h2>Ready-to-Ship Hats</h2>
+                        <p class="checkout-intro">These items are already made and ship as listed. Custom orders do not qualify for birthday BOGO.</p>
+                        <div id="ready-to-ship-items" class="checkout-item-list"></div>
+                        <p class="form-message" id="inventory-message" aria-live="polite"></p>
+                    </div>
+
+                    <div class="checkout-block">
                         <h2>Promo Code</h2>
-                        <p class="checkout-intro">Have a discount code? Enter it below.</p>
+                        <p class="checkout-intro">Enter one promotion or Trae Rewards code. Only one discount can be used per order.</p>
                         <div style="display:flex;gap:0.5rem;">
-                            <input type="text" id="promo-code-input" placeholder="Enter code" autocomplete="off" style="flex:1;text-transform:uppercase;">
+                            <input type="text" id="promo-code-input" placeholder="Enter one discount code" autocomplete="off" style="flex:1;text-transform:uppercase;">
                             <button type="button" id="apply-promo-button" class="button" style="white-space:nowrap;">Apply</button>
+                            <button type="button" id="remove-promo-button" class="button secondary" style="display:none;white-space:nowrap;">Remove</button>
                         </div>
+                        <p class="checkout-note">💜 Only one discount can be used per order. Please remove your current discount before applying another offer.</p>
                         <div id="promo-message" class="form-message" aria-live="polite" style="margin-top:0.5rem;"></div>
+                    </div>
+
+                    <div class="checkout-block">
+                        <h2>Referral</h2>
+                        <p class="checkout-intro">Have a friend’s referral code? Enter it once to support their rewards.</p>
+                        <input type="text" id="referral-code-input" placeholder="Referral code (optional)" maxlength="40" autocomplete="off">
                     </div>
 
                     <div class="checkout-block checkout-block-last">

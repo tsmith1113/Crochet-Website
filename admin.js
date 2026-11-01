@@ -2,6 +2,28 @@ const apiBase = '';
 const ordersBody = document.getElementById('orders-table-body');
 const adminMessage = document.getElementById('admin-message');
 
+// Mirrors ORDER_STATUS_STEPS in server.js. 'confirmed' and 'shipped' are set by
+// their own dedicated routes (order creation / POST /orders/:id/ship); the rest
+// are set via PATCH /orders/:id/status.
+const ORDER_STATUS_STEPS = [
+  { key: 'confirmed', label: 'Order Confirmed' },
+  { key: 'preparing', label: 'Preparing Your Order' },
+  { key: 'making', label: 'Making Your Hat' },
+  { key: 'ready', label: 'Ready to Ship' },
+  { key: 'shipped', label: 'Shipped' },
+  { key: 'delivered', label: 'Delivered' }
+];
+
+function getStatusLabel(status) {
+  return ORDER_STATUS_STEPS.find(step => step.key === status)?.label || status;
+}
+
+function getNextStatusStep(status) {
+  const index = ORDER_STATUS_STEPS.findIndex(step => step.key === status);
+  if (index === -1 || index === ORDER_STATUS_STEPS.length - 1) return null;
+  return ORDER_STATUS_STEPS[index + 1];
+}
+
 function getItemColorLabels(product, bucketHatStyle, rowCount) {
   if (product === 'Ruffle Bucket Hat') {
     return bucketHatStyle === 'main-rest'
@@ -34,14 +56,19 @@ function escapeHtml(value) {
 
 function formatDeliveryCell(order) {
   if (order.delivery_method === 'ksu') {
+    const missedCount = Number(order.missed_delivery_count || 0);
+    const missedWarning = missedCount > 0
+      ? `<br><strong style="color:#b00020;">⚠️ Rescheduled ${missedCount}x (missed delivery, $10 fee${missedCount > 1 ? ' each time' : ''} paid)</strong>`
+      : '';
     return `
       <strong style="color:#7b1c2e;">🎓 KSU Campus Delivery</strong><br>
       <small>
         Campus: ${escapeHtml(order.ksu_campus) || '—'}<br>
         Meetup Location: ${escapeHtml(order.ksu_meetup_location) || '—'}<br>
         Delivery Date: ${escapeHtml(order.ksu_delivery_day) || '—'}<br>
+        Delivery Time: ${escapeHtml(order.ksu_delivery_time) || '—'}<br>
         Phone: ${escapeHtml(order.ksu_phone) || '—'}<br>
-        KSU ID: ${escapeHtml(order.ksu_id_number) || '—'}
+        KSU ID: ${escapeHtml(order.ksu_id_number) || '—'}${missedWarning}
       </small>
     `;
   }
@@ -49,10 +76,41 @@ function formatDeliveryCell(order) {
   return `Ship My Order<br><small>${label}</small>`;
 }
 
+function nextStatusCell(order) {
+  if (order.status === 'payment_pending') {
+    return `<span class="admin-status">Awaiting Payment</span>`;
+  }
+
+  const currentLabel = getStatusLabel(order.status);
+  const next = getNextStatusStep(order.status);
+
+  if (!next) {
+    return `<span class="admin-status">✅ ${currentLabel}</span>`;
+  }
+
+  if (next.key === 'shipped') {
+    // The actual shipping action (and tracking number) is handled by the
+    // existing Tracking Number column + markShipped(), unchanged.
+    return `
+      <span class="admin-status">${currentLabel}</span><br>
+      <button type="button" class="advance-ship-button" data-id="${order.id}" style="margin-top:6px;">
+        Mark Shipped
+      </button>
+    `;
+  }
+
+  return `
+    <span class="admin-status">${currentLabel}</span><br>
+    <button type="button" class="advance-status-button" data-id="${order.id}" data-next-status="${next.key}" style="margin-top:6px;">
+      Advance to: ${next.label}
+    </button>
+  `;
+}
+
 function renderOrders(orders) {
   if (!ordersBody) return;
   if (!orders.length) {
-    ordersBody.innerHTML = '<tr><td colspan="7">No orders found.</td></tr>';
+    ordersBody.innerHTML = '<tr><td colspan="8">No orders found.</td></tr>';
     return;
   }
 
@@ -91,7 +149,7 @@ function renderOrders(orders) {
 <td>${items}</td>
         <td>${formatAmount(order.total)}</td>
         <td>${formatDeliveryCell(order)}</td>
-        <td class="admin-status">${order.status}</td>
+        <td>${nextStatusCell(order)}</td>
         <td>
   ${isShipped
     ? `<span class="tracking-display" data-id="${order.id}">${order.tracking_number || '—'}</span>
@@ -104,10 +162,7 @@ function renderOrders(orders) {
   }
 </td>
         <td>
-          <button type="button" class="ship-button" data-id="${order.id}" ${isShipped ? 'disabled' : ''}>
-            ${isShipped ? 'Shipped' : 'Mark Shipped'}
-          </button>
-          <button type="button" class="resend-button" data-id="${order.id}" style="margin-top:6px;">
+          <button type="button" class="resend-button" data-id="${order.id}">
             Resend Email
           </button>
         </td>
@@ -181,6 +236,24 @@ async function updateTracking(orderId, trackingNumber) {
   }
 }
 
+async function advanceStatus(orderId, nextStatus) {
+  try {
+    showAdminMessage(`Updating order status to "${getStatusLabel(nextStatus)}"...`);
+    const response = await fetch(`${apiBase}/orders/${orderId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: nextStatus })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Unable to update order status.');
+    showAdminMessage(`Order ${result.order_number} is now "${getStatusLabel(nextStatus)}".`);
+    await loadOrders();
+  } catch (error) {
+    console.error(error);
+    showAdminMessage(error.message || 'Unable to update order status.', true);
+  }
+}
+
 async function resendConfirmation(orderId) {
   try {
     showAdminMessage('Sending confirmation email...');
@@ -195,13 +268,22 @@ async function resendConfirmation(orderId) {
 
 if (ordersBody) {
   ordersBody.addEventListener('click', event => {
-    const shipButton = event.target.closest('.ship-button');
+    const shipButton = event.target.closest('.advance-ship-button');
     if (shipButton) {
       const orderId = shipButton.dataset.id;
       if (orderId) {
         const trackingInput = document.querySelector(`.tracking-input[data-id="${orderId}"]`);
         const trackingNumber = trackingInput?.value.trim();
         markShipped(orderId, trackingNumber);
+      }
+    }
+
+    const advanceButton = event.target.closest('.advance-status-button');
+    if (advanceButton) {
+      const orderId = advanceButton.dataset.id;
+      const nextStatus = advanceButton.dataset.nextStatus;
+      if (orderId && nextStatus) {
+        advanceStatus(orderId, nextStatus);
       }
     }
 
